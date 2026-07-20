@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>Wett-Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0c10;
+    --bg-soft:#06070a;
+    --panel:#0e1218;
+    --panel-border:#232c3a;
+    --paper:#eef1f7;
+    --paper-shadow:#d7dce6;
+    --ink:#161b24;
+    --ink-soft:#4d5666;
+    --gold:#3b82f6;
+    --gold-light:#7db0ff;
+    --win:#3f8f5c;
+    --win-soft:#dcecdf;
+    --loss:#b5473a;
+    --loss-soft:#f4ddd8;
+    --muted:#7987a1;
+    --line:rgba(226,232,240,.14);
+    --paper-line: rgba(22,27,36,.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  html,body{
+    background:var(--bg);
+    color:#e7eaf1;
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:1180px;margin:0 auto;padding:36px 20px 80px;
+    padding-left:max(20px, env(safe-area-inset-left));
+    padding-right:max(20px, env(safe-area-inset-right));
+    padding-bottom:max(80px, env(safe-area-inset-bottom));
+  }
+
+  /* ---------- Header ---------- */
+  .header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    flex-wrap:wrap;gap:16px;
+    margin-bottom:32px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:22px;
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gold-light);margin-bottom:6px;
+  }
+  h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:clamp(28px,4.5vw,42px);
+    letter-spacing:.01em;
+    margin:0;
+    text-transform:uppercase;
+  }
+  .header p{
+    margin:6px 0 0;color:var(--muted);font-size:14px;max-width:440px;
+  }
+  .header-actions{display:flex;gap:10px;flex-wrap:wrap;align-self:flex-end;}
+
+  button{font-family:'Inter',sans-serif;cursor:pointer;}
+  .btn{
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    color:#e7eaf1;
+    padding:10px 16px;
+    border-radius:6px;
+    font-size:13px;font-weight:600;
+    letter-spacing:.01em;
+    transition:border-color .15s ease, transform .1s ease;
+  }
+  .btn:hover{border-color:var(--gold);}
+  .btn:active{transform:translateY(1px);}
+  .btn-gold{
+    background:var(--gold);border-color:var(--gold);color:#ffffff;
+  }
+  .btn-gold:hover{background:var(--gold-light);border-color:var(--gold-light);}
+  .btn-ghost{background:transparent;color:var(--muted);border-color:transparent;}
+  .btn-ghost:hover{color:#e7eaf1;}
+  .btn-small{padding:6px 11px;font-size:12px;}
+
+  /* ---------- Stat stubs ---------- */
+  .stat-row{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:34px;
+  }
+  .stat-card{
+    background:var(--paper);color:var(--ink);
+    border-radius:6px;
+    padding:16px 16px 22px;
+    position:relative;
+    clip-path: polygon(0 0,100% 0,100% 90%,94% 100%,88% 90%,82% 100%,76% 90%,70% 100%,64% 90%,58% 100%,52% 90%,46% 100%,40% 90%,34% 100%,28% 90%,22% 100%,16% 90%,10% 100%,4% 90%,0 96%);
+    box-shadow:0 10px 22px rgba(0,0,0,.25);
+    animation: rise .5s ease backwards;
+  }
+  .stat-card:nth-child(2){animation-delay:.04s;}
+  .stat-card:nth-child(3){animation-delay:.08s;}
+  .stat-card:nth-child(4){animation-delay:.12s;}
+  .stat-card:nth-child(5){animation-delay:.16s;}
+  @keyframes rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @media (prefers-reduced-motion: reduce){ .stat-card{animation:none;} }
+  .stat-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--ink-soft);margin-bottom:8px;
+  }
+  .stat-value{
+    font-family:'Oswald',sans-serif;font-weight:600;
+    font-size:24px;line-height:1.05;
+  }
+  .stat-value.pos{color:var(--win);}
+  .stat-value.neg{color:var(--loss);}
+  .stat-sub{font-size:11px;color:var(--ink-soft);margin-top:5px;font-family:'IBM Plex Mono',monospace;}
+
+  /* ---------- Layout sections ---------- */
+  .section-title{
+    font-family:'Oswald',sans-serif;text-transform:uppercase;
+    font-size:14px;letter-spacing:.1em;color:var(--gold-light);
+    margin:0 0 14px;display:flex;align-items:center;gap:10px;
+  }
+  .section-title::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  /* ---------- Form (betslip) ---------- */
+  .slip{
+    background:var(--paper);color:var(--ink);border-radius:8px;
+    padding:22px 24px 20px;margin-bottom:36px;
+    box-shadow:0 14px 30px rgba(0,0,0,.28);
+  }
+  .slip-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .slip-head h2{
+    font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:16px;margin:0;letter-spacing:.04em;
+  }
+  .slip-close{background:none;border:none;color:var(--ink-soft);font-size:13px;font-family:'IBM Plex Mono',monospace;}
+  .form-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+  }
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field.span2{grid-column:span 2;}
+  .field label{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--ink-soft);
+  }
+  .field input, .field select, .field textarea{
+    font-family:'Inter',sans-serif;font-size:14px;
+    padding:9px 10px;border-radius:5px;border:1px solid var(--paper-line);
+    background:#f8faff;color:var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:2px solid var(--gold);outline-offset:1px;
+  }
+  .form-actions{grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end;margin-top:4px;}
+  .form-actions .btn{color:#ffffff;}
+  .form-actions .btn-ghost{color:var(--ink-soft);}
+
+  @media(max-width:820px){
+    .form-grid{grid-template-columns:repeat(2,1fr);}
+    .field.span2{grid-column:span 2;}
+    .stat-row{grid-template-columns:repeat(2,1fr);}
+  }
+
+  /* ---------- Filters ---------- */
+  .filters{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+    margin-bottom:22px;padding:14px 16px;background:var(--panel);
+    border:1px solid var(--panel-border);border-radius:8px;
+  }
+  .filters select, .filters input{
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+    background:var(--bg-soft);color:#e7eaf1;border:1px solid var(--panel-border);
+    padding:8px 10px;border-radius:5px;
+  }
+  .filters .grow{flex:1;min-width:140px;}
+
+  /* ---------- Charts ---------- */
+  .chart-grid{
+    display:block;margin-bottom:36px;
+  }
+  .chart-card{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:8px;
+    padding:18px 18px 14px;
+  }
+  .chart-card h3{
+    font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:12.5px;
+    letter-spacing:.08em;color:var(--gold-light);margin:0 0 12px;
+  }
+  .chart-tabs{
+    display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;
+    border-bottom:1px solid var(--panel-border);padding-bottom:12px;
+  }
+  .chart-tab{
+    background:transparent;border:1px solid var(--panel-border);color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;
+    padding:7px 13px;border-radius:5px;transition:all .15s ease;
+  }
+  .chart-tab:hover{color:#e7eaf1;border-color:var(--gold);}
+  .chart-tab.active{background:var(--gold);border-color:var(--gold);color:#ffffff;font-weight:600;}
+  .chart-card .chart-wrap{height:230px;position:relative;}
+  .chart-card .chart-wrap-lg{height:320px;position:relative;}
+  .chart-empty{
+    height:230px;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:12.5px;text-align:center;padding:0 20px;
+  }
+
+  /* ---------- Bet list ---------- */
+  .bet-list{display:flex;flex-direction:column;gap:22px;}
+  .bet-card{
+    position:relative;background:var(--paper);color:var(--ink);
+    border-radius:5px;padding:16px 20px 16px 30px;
+    display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr auto;gap:14px;align-items:center;
+    box-shadow:0 8px 18px rgba(0,0,0,.22);
+  }
+  .bet-card::before, .bet-card::after{
+    content:"";position:absolute;left:-8px;width:16px;height:16px;
+    background:var(--bg);border-radius:50%;
+  }
+  .bet-card::before{top:-8px;}
+  .bet-card::after{bottom:-8px;}
+  .bet-card .perf{
+    position:absolute;left:8px;top:8px;bottom:8px;width:0;
+    border-left:2px dashed var(--paper-line);
+  }
+  .bet-event{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;}
+  .bet-meta{font-size:11.5px;color:var(--ink-soft);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
+  .bet-col-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;margin-bottom:2px;}
+  .bet-col-value{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+  .stamp{
+    position:absolute;top:10px;right:16px;
+    font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;
+    letter-spacing:.08em;text-transform:uppercase;
+    padding:3px 9px;border:2px solid;border-radius:3px;
+    transform:rotate(-6deg);opacity:.9;
+  }
+  .stamp.won{color:var(--win);border-color:var(--win);}
+  .stamp.lost{color:var(--loss);border-color:var(--loss);}
+  .stamp.push{color:var(--muted);border-color:var(--muted);}
+  .stamp.cashout{color:#64748b;border-color:#64748b;}
+  .stamp.open{color:var(--gold);border-color:var(--gold);}
+  .bet-actions{display:flex;flex-direction:column;gap:6px;}
+  .icon-btn.quick-won{border-color:var(--win);color:var(--win);font-weight:600;}
+  .icon-btn.quick-won:hover{background:var(--win);color:#fff;}
+  .icon-btn.quick-lost{border-color:var(--loss);color:var(--loss);font-weight:600;}
+  .icon-btn.quick-lost:hover{background:var(--loss);color:#fff;}
+  .icon-btn.quick-cashout{border-color:#64748b;color:#64748b;font-weight:600;}
+  .icon-btn.quick-cashout:hover{background:#64748b;color:#fff;}
+  .icon-btn{
+    background:none;border:1px solid var(--paper-line);color:var(--ink-soft);
+    border-radius:4px;padding:5px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;
+  }
+  .icon-btn:hover{border-color:var(--ink-soft);color:var(--ink);}
+  @media(max-width:800px){
+    .bet-card{grid-template-columns:1fr 1fr;}
+    .bet-actions{grid-column:1/-1;flex-direction:row;}
+  }
+
+  /* ---------- Empty states ---------- */
+  .empty{
+    text-align:center;padding:50px 20px;color:var(--muted);
+    border:1px dashed var(--panel-border);border-radius:8px;
+  }
+  .empty h3{color:#e7eaf1;font-family:'Oswald',sans-serif;text-transform:uppercase;margin-bottom:8px;letter-spacing:.04em;}
+  .empty p{font-size:13.5px;max-width:380px;margin:0 auto 18px;}
+
+  .footnote{margin-top:40px;text-align:center;color:var(--muted);font-size:11.5px;font-family:'IBM Plex Mono',monospace;}
+
+  /* ---------- Custom confirm dialog ---------- */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(4,6,10,.65);
+    align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .modal-box{
+    background:var(--paper);color:var(--ink);border-radius:8px;
+    padding:22px 24px;max-width:360px;width:100%;
+    box-shadow:0 20px 40px rgba(0,0,0,.4);
+  }
+  .modal-box p{margin:0 0 18px;font-size:14.5px;line-height:1.4;}
+  .modal-input{
+    width:100%;font-family:'Inter',sans-serif;font-size:16px;
+    padding:9px 10px;border-radius:5px;border:1px solid var(--paper-line);
+    background:#f8faff;color:var(--ink);margin-bottom:18px;
+  }
+  .modal-input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;}
+  .modal-actions .btn-ghost{color:var(--ink-soft);}
+  .modal-actions .btn-gold{color:#ffffff;}
+
+  /* ---------- Combo bet (Kombiwette) legs ---------- */
+  .choice-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+  .choice-card{
+    flex:1;min-width:200px;text-align:left;
+    background:transparent;border:1.5px solid var(--paper-line);border-radius:8px;
+    padding:16px 18px;color:var(--ink);cursor:pointer;transition:border-color .15s ease, background .15s ease;
+  }
+  .choice-card:hover{border-color:var(--gold);background:rgba(59,130,246,.08);}
+  .choice-card h4{margin:0 0 4px;font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:14px;letter-spacing:.03em;}
+  .choice-card p{margin:0;font-size:12.5px;color:var(--ink-soft);}
+  .legs-list{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+  .leg-row{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    background:rgba(22,27,36,.05);border:1px solid var(--paper-line);border-radius:6px;
+    padding:10px 14px;
+  }
+  .leg-row strong{font-size:13.5px;}
+  .leg-meta{font-size:11px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
+  .leg-odds{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13.5px;}
+  .btn-outline-ink{border:1px solid var(--paper-line);color:var(--ink);background:transparent;}
+  .btn-outline-ink:hover{border-color:var(--gold);}
+  .field-checkbox{justify-content:flex-end;}
+  .checkbox-label{
+    display:flex;align-items:center;gap:8px;cursor:pointer;
+    font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);
+    margin-top:auto;padding:9px 0;
+  }
+  .checkbox-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--gold);cursor:pointer;}
+
+  /* ---------- View nav (Übersicht / Kalender) ---------- */
+  .view-nav{display:flex;gap:8px;margin-bottom:26px;border-bottom:1px solid var(--line);}
+  .view-tab{
+    background:transparent;border:none;border-bottom:2px solid transparent;
+    color:var(--muted);font-family:'Oswald',sans-serif;text-transform:uppercase;
+    font-size:13px;letter-spacing:.05em;padding:10px 4px;margin-bottom:-1px;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .view-tab:hover{color:#e7eaf1;}
+  .view-tab.active{color:var(--gold-light);border-bottom-color:var(--gold);}
+
+  /* ---------- Calendar ---------- */
+  .calendar-toolbar{
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+    margin-bottom:20px;
+  }
+  .calendar-toggle{display:flex;gap:6px;}
+  .calendar-nav{display:flex;align-items:center;gap:10px;}
+  .calendar-label{
+    font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.05em;
+    font-size:15px;min-width:150px;text-align:center;color:#e7eaf1;
+  }
+  .cal-weekdays{
+    display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px;
+  }
+  .cal-weekdays div{
+    text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+  }
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+  .cal-cell{
+    aspect-ratio:1/0.85;border-radius:7px;padding:8px;position:relative;
+    display:flex;flex-direction:column;justify-content:space-between;
+    cursor:pointer;transition:transform .1s ease, border-color .15s ease;
+    background:var(--panel);border:1px solid var(--panel-border);
+    overflow:hidden;min-width:0;
+  }
+  .cal-cell:hover{transform:translateY(-2px);border-color:var(--gold);}
+  .cal-cell.empty{background:transparent;border:none;cursor:default;pointer-events:none;}
+  .cal-cell.pos{background:rgba(63,143,92,.16);border-color:rgba(63,143,92,.5);}
+  .cal-cell.neg{background:rgba(181,71,58,.16);border-color:rgba(181,71,58,.5);}
+  .cal-daynum{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);
+    display:flex;align-items:center;gap:5px;
+  }
+  .cal-cell.pos .cal-daynum, .cal-cell.neg .cal-daynum{color:#e7eaf1;}
+  .cal-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block;}
+  .cal-pl{
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;
+    text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .cal-cell.pos .cal-pl{color:#8fe0ab;}
+  .cal-cell.neg .cal-pl{color:#f0a396;}
+  .cal-year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .cal-month-tile{
+    background:var(--panel);border:1px solid var(--panel-border);border-radius:9px;
+    padding:20px 16px;cursor:pointer;transition:transform .1s ease, border-color .15s ease;
+    display:flex;flex-direction:column;gap:8px;align-items:center;
+  }
+  .cal-month-tile:hover{transform:translateY(-2px);border-color:var(--gold);}
+  .cal-month-tile.pos{background:rgba(63,143,92,.12);border-color:rgba(63,143,92,.45);}
+  .cal-month-tile.neg{background:rgba(181,71,58,.12);border-color:rgba(181,71,58,.45);}
+  .cal-month-name{
+    font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.05em;
+    font-size:13px;color:var(--muted);
+  }
+  .cal-month-tile.pos .cal-month-name, .cal-month-tile.neg .cal-month-name{color:#e7eaf1;}
+  .cal-month-tile .cal-pl{font-size:16px;}
+  .cal-month-tile .cal-pl.muted{color:var(--muted);font-weight:400;}
+  @media(max-width:700px){
+    .cal-year-grid{grid-template-columns:repeat(2,1fr);}
+    .cal-daynum{font-size:10.5px;}
+    .cal-pl{font-size:10.5px;}
+  }
+
+  /* ======================================================
+     Mobile / portrait phone layout (app-like)
+     ====================================================== */
+  @media(max-width:640px){
+    body{ -webkit-text-size-adjust:100%; }
+    .wrap{
+      padding:18px 12px 90px;
+      padding-left:max(12px, env(safe-area-inset-left));
+      padding-right:max(12px, env(safe-area-inset-right));
+      padding-bottom:max(90px, env(safe-area-inset-bottom));
+    }
+
+    /* Header: stack, primary action full-width and prominent */
+    .header{ flex-direction:column; align-items:stretch; gap:12px; margin-bottom:22px; padding-bottom:16px; }
+    .header > div:first-child{ text-align:left; }
+    h1{ font-size:26px; }
+    .header p{ max-width:none; }
+    .header-actions{
+      display:grid; grid-template-columns:1fr 1fr; gap:8px; align-self:stretch;
+    }
+    .header-actions .btn{ width:100%; text-align:center; padding:11px 10px; font-size:12.5px; }
+    .header-actions #openFormBtn{ grid-column:1 / -1; padding:13px 10px; font-size:14px; order:-1; }
+
+    /* View tabs: full-width, equal split, easy to tap */
+    .view-nav{ margin-bottom:20px; }
+    .view-tab{ flex:1; text-align:center; padding:12px 4px; font-size:12.5px; }
+
+    /* Stat tickets: 2 per row, comfortably sized */
+    .stat-row{ grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px; }
+    .stat-card{ padding:14px 12px 20px; }
+    .stat-value{ font-size:19px; }
+
+    /* Betslip form: single column, larger tap targets */
+    .slip{ padding:18px 16px 16px; }
+    .form-grid{ grid-template-columns:1fr; gap:12px; }
+    .field.span2{ grid-column:1 / -1; }
+    .field input, .field select, .field textarea{ padding:12px 11px; font-size:16px; } /* 16px avoids iOS auto-zoom */
+    .form-actions{ flex-direction:column-reverse; gap:8px; }
+    .form-actions .btn{ width:100%; padding:13px; }
+    .choice-row{ flex-direction:column; }
+    .choice-card{ min-width:0; }
+
+    /* Filters: stacked full-width controls */
+    .filters{ flex-direction:column; align-items:stretch; padding:12px; gap:8px; }
+    .filters select, .filters input{ width:100%; padding:11px 10px; font-size:15px; }
+    .filters .btn{ width:100%; }
+
+    /* Charts */
+    .chart-tabs{ gap:6px; }
+    .chart-tab{ flex:1 1 40%; text-align:center; font-size:10.5px; padding:8px 6px; }
+    .chart-card .chart-wrap-lg{ height:250px; }
+
+    /* Bet cards: stack all info vertically, reachable action buttons */
+    .bet-card{
+      grid-template-columns:1fr 1fr; gap:12px 14px;
+      padding:16px 16px 14px 26px;
+    }
+    .bet-event{ font-size:14px; }
+    .stamp{ font-size:10px; padding:2px 7px; top:8px; right:12px; }
+    .bet-actions{
+      grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; gap:8px; margin-top:4px;
+    }
+    .bet-actions .icon-btn{ flex:1 1 calc(50% - 4px); text-align:center; padding:9px 6px; font-size:12px; }
+
+    /* Calendar: keep all 7 columns but tighten spacing, keep cells tappable */
+    .calendar-toolbar{ flex-direction:column; align-items:stretch; gap:12px; }
+    .calendar-toggle{ justify-content:stretch; }
+    .calendar-toggle .chart-tab{ flex:1; }
+    .calendar-nav{ justify-content:space-between; }
+    .calendar-label{ min-width:0; flex:1; }
+    .cal-grid{ gap:4px; }
+    .cal-weekdays{ gap:4px; }
+    .cal-cell{ padding:5px 4px; border-radius:6px; }
+    .cal-daynum{ font-size:10px; gap:3px; }
+    .cal-dot{ width:5px; height:5px; }
+    .cal-pl{ font-size:9px; }
+    .cal-year-grid{ grid-template-columns:repeat(2,1fr); gap:10px; }
+    .cal-month-tile{ padding:16px 12px; }
+
+    /* Modals */
+    .modal-box{ padding:18px 16px; max-width:100%; }
+    .modal-actions{ flex-direction:column-reverse; }
+    .modal-actions .btn{ width:100%; }
+
+    /* Combo bet legs */
+    .leg-row{ flex-wrap:wrap; }
+    .leg-row > div:first-child{ flex:1 1 100%; }
+    .leg-row .icon-btn{ padding:8px 12px; font-size:12px; }
+
+    /* Bookie manager rows */
+    .bookie-row{ flex-wrap:wrap; }
+  }
+
+  @media(max-width:380px){
+    .header-actions{ grid-template-columns:1fr; }
+    .header-actions #openFormBtn{ grid-column:1; }
+    .stat-row{ grid-template-columns:1fr 1fr; }
+    .bet-card{ grid-template-columns:1fr; }
+    .bet-actions .icon-btn{ flex:1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <div class="brand-eyebrow">Eigene Bilanz &middot; Eigene Kontrolle</div>
+      <h1>Wett-Tracker</h1>
+      <p>Erfasse deine Wetten wie Tippscheine und behalte Einsatz, Quote und Ergebnis jederzeit im Blick.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-small" data-action="manage-bookies">Bookies verwalten</button>
+      <button class="btn btn-ghost btn-small" id="demoBtn" data-action="demo">Beispieldaten laden</button>
+      <button class="btn btn-ghost btn-small" id="resetBtn" data-action="reset">Alle Daten löschen</button>
+      <button class="btn btn-gold" id="openFormBtn" data-action="new-bet">+ Neue Wette</button>
+    </div>
+  </div>
+
+  <div class="view-nav">
+    <button class="view-tab active" id="viewTabDashboard" data-action="view-dashboard">Übersicht</button>
+    <button class="view-tab" id="viewTabCalendar" data-action="view-calendar">Kalender</button>
+  </div>
+
+  <div id="dashboardWrap">
+    <div class="stat-row" id="statRow"></div>
+    <div id="slipContainer"></div>
+    <div id="mainContent"></div>
+  </div>
+
+  <div id="calendarWrap" style="display:none;"></div>
+
+  <div class="footnote">Deine Daten werden lokal in diesem Tool gespeichert und mit niemandem geteilt.</div>
+</div>
+
+<div class="modal-overlay" id="confirmOverlay">
+  <div class="modal-box">
+    <p id="confirmMessage">Bist du sicher?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="confirm-no">Abbrechen</button>
+      <button class="btn btn-gold" data-action="confirm-yes">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="promptOverlay">
+  <div class="modal-box">
+    <p id="promptMessage">Bitte Wert eingeben</p>
+    <input type="number" step="0.01" min="0" id="promptInput" class="modal-input" placeholder="Betrag in €">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="prompt-no">Abbrechen</button>
+      <button class="btn btn-gold" data-action="prompt-yes">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bookieOverlay">
+  <div class="modal-box" style="max-width:420px;">
+    <h3 style="margin:0 0 14px;font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:15px;letter-spacing:.04em;">Bookies verwalten</h3>
+    <div id="bookieListWrap"></div>
+    <div style="display:flex;gap:8px;margin:14px 0 20px;">
+      <input type="text" id="newBookieInput" class="modal-input" style="margin-bottom:0;flex:1;" placeholder="z. B. Bet365">
+      <button type="button" class="btn btn-gold" data-action="add-bookie" style="white-space:nowrap;">Hinzufügen</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="close-bookie-manager">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   Storage compatibility shim.
+   Inside Claude.ai artifacts, window.storage already exists and is
+   used as-is. Outside that environment (hosted standalone / on your
+   phone as an installed app), window.storage does not exist, so we
+   polyfill it here using localStorage — same API, so nothing else
+   in this file needs to change.
+   --------------------------------------------------------------- */
+if(!window.storage){
+  const NS = 'wett-tracker:';
+  window.storage = {
+    async get(key){
+      const raw = localStorage.getItem(NS+key);
+      if(raw === null) throw new Error('key not found: '+key);
+      return { key, value: raw, shared: false };
+    },
+    async set(key, value){
+      localStorage.setItem(NS+key, value);
+      return { key, value, shared: false };
+    },
+    async delete(key){
+      localStorage.removeItem(NS+key);
+      return { key, deleted: true, shared: false };
+    },
+    async list(prefix){
+      const p = NS + (prefix||'');
+      const keys = Object.keys(localStorage).filter(k=>k.startsWith(p)).map(k=>k.slice(NS.length));
+      return { keys, prefix, shared: false };
+    }
+  };
+}
+
+const CHART_AVAILABLE = typeof Chart !== 'undefined';
+if(CHART_AVAILABLE){
+  Chart.defaults.color = '#9aa5b8';
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.borderColor = 'rgba(226,232,240,.08)';
+}
+
+const SPORTS = ["Fußball","Basketball","Tennis","Eishockey","American Football","Baseball","Handball","Darts","Valorant","League of Legends","CS2","Sonstiges"];
+const ESPORTS_GROUP = ["Valorant","League of Legends","CS2"];
+const fmtEUR = n => (n<0?'-':'') + Math.abs(n).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const fmtPct = n => n.toLocaleString('de-DE',{maximumFractionDigits:1,minimumFractionDigits:1}) + ' %';
+const fmtDate = d => new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+let bets = [];
+let bookies = [];
+let editingId = null;
+let comboLegs = [];
+let charts = {};
+let filters = { sport:'', status:'', team:'', period:'all', from:'', to:'', bookie:'' };
+let activeChartTab = 'profit';
+let currentView = 'dashboard';
+let calendarMode = 'month';
+let calendarDate = new Date();
+const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const WEEKDAY_NAMES = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+const CHART_TABS = [
+  {id:'profit', label:'Bilanzverlauf'},
+  {id:'status', label:'Status'},
+  {id:'sport', label:'Sportart'},
+  {id:'team', label:'Mannschaft'},
+  {id:'bookie', label:'Bookie'}
+];
+const MARKET_OPTIONS = ["1X2 (Sieger)","Doppelte Chance","Über 0,5 Tore/Punkte","Über 1,5 Tore/Punkte","Über 2,5 Tore/Punkte","Über 3,5 Tore/Punkte","Unter 0,5 Tore/Punkte","Unter 1,5 Tore/Punkte","Unter 2,5 Tore/Punkte","Unter 3,5 Tore/Punkte","Beide Teams treffen (BTTS)","Handicap","Halbzeit/Endstand","Torschütze","Satz-/Rundenwette","Sonstiges"];
+
+function isoDate(d){ return d.toISOString().slice(0,10); }
+function periodToRange(period){
+  const today = new Date();
+  if(period === '7d'){ const d = new Date(today); d.setDate(d.getDate()-6); return {from:isoDate(d), to:isoDate(today)}; }
+  if(period === '30d'){ const d = new Date(today); d.setDate(d.getDate()-29); return {from:isoDate(d), to:isoDate(today)}; }
+  if(period === 'month'){ const d = new Date(today.getFullYear(), today.getMonth(), 1); return {from:isoDate(d), to:isoDate(today)}; }
+  if(period === 'year'){ const d = new Date(today.getFullYear(),0,1); return {from:isoDate(d), to:isoDate(today)}; }
+  return {from:'', to:''};
+}
+
+function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'b'+Date.now()+Math.random().toString(16).slice(2)); }
+
+function computeResult(bet){
+  const stake = Number(bet.stake)||0, odds = Number(bet.odds)||0;
+  const bonusPct = Number(bet.bonus)||0;
+  const effectiveOdds = bonusPct > 0 ? odds * (1 + bonusPct/100) : odds;
+  const isFree = !!bet.freebet;
+  if(bet.status === 'gewonnen'){
+    if(isFree){
+      const profit = stake*(effectiveOdds-1);
+      return { payout: profit, profit };
+    }
+    return { payout: stake*effectiveOdds, profit: stake*effectiveOdds - stake };
+  }
+  if(bet.status === 'verloren') return { payout: 0, profit: isFree ? 0 : -stake };
+  if(bet.status === 'push') return { payout: isFree ? 0 : stake, profit: 0 };
+  if(bet.status === 'cashout'){
+    const amount = Number(bet.cashoutAmount)||0;
+    return { payout: amount, profit: isFree ? amount : amount - stake };
+  }
+  return { payout: null, profit: null };
+}
+
+async function loadBets(){
+  try{
+    const res = await window.storage.get('bets', false);
+    bets = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){ bets = []; }
+  renderApp();
+}
+
+async function saveBets(){
+  try{ await window.storage.set('bets', JSON.stringify(bets), false); }
+  catch(e){ console.error('Speichern fehlgeschlagen', e); }
+}
+
+async function loadBookies(){
+  try{
+    const res = await window.storage.get('bookies', false);
+    bookies = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){ bookies = []; }
+}
+
+async function saveBookies(){
+  try{ await window.storage.set('bookies', JSON.stringify(bookies), false); }
+  catch(e){ console.error('Bookies speichern fehlgeschlagen', e); }
+}
+
+function getFiltered(){
+  return bets.filter(b=>{
+    if(filters.sport){
+      const matchSport = s => filters.sport === '__esports__' ? ESPORTS_GROUP.includes(s) : s === filters.sport;
+      if(b.type === 'combo'){
+        if(!(b.legs||[]).some(l=>matchSport(l.sport))) return false;
+      } else if(!matchSport(b.sport)) return false;
+    }
+    if(filters.status && b.status !== filters.status) return false;
+    if(filters.bookie && (b.bookie||'') !== filters.bookie) return false;
+    if(filters.team){
+      const t = filters.team.toLowerCase();
+      let hay;
+      if(b.type === 'combo'){
+        hay = (b.legs||[]).map(l=>`${l.teamA||''} ${l.teamB||''}`).join(' ').toLowerCase();
+      } else {
+        hay = ((b.teamA||'')+' '+(b.teamB||'')+' '+(b.event||'')).toLowerCase();
+      }
+      if(!hay.includes(t)) return false;
+    }
+    if(filters.from && b.date < filters.from) return false;
+    if(filters.to && b.date > filters.to) return false;
+    return true;
+  });
+}
+
+function renderAll(){
+  renderStats();
+  renderFiltersAndList();
+  renderCharts();
+}
+
+function renderApp(){
+  const dashEl = document.getElementById('dashboardWrap');
+  const calEl = document.getElementById('calendarWrap');
+  const tabDash = document.getElementById('viewTabDashboard');
+  const tabCal = document.getElementById('viewTabCalendar');
+  if(currentView === 'calendar'){
+    dashEl.style.display = 'none';
+    calEl.style.display = '';
+    tabDash.classList.remove('active');
+    tabCal.classList.add('active');
+    renderCalendar();
+  } else {
+    dashEl.style.display = '';
+    calEl.style.display = 'none';
+    tabCal.classList.remove('active');
+    tabDash.classList.add('active');
+    renderAll();
+  }
+}
+
+/* ---------------- Stats ---------------- */
+function renderStats(){
+  const list = getFiltered();
+  const settled = list.filter(b=>b.status!=='offen');
+  const totalStakeSettled = settled.filter(b=>!b.freebet).reduce((s,b)=>s+Number(b.stake),0);
+  const totalStakeOpen = list.filter(b=>b.status==='offen' && !b.freebet).reduce((s,b)=>s+Number(b.stake),0);
+  const profit = settled.reduce((s,b)=>s + computeResult(b).profit, 0);
+  const roi = totalStakeSettled ? (profit/totalStakeSettled*100) : 0;
+  const won = list.filter(b=>b.status==='gewonnen').length;
+  const lost = list.filter(b=>b.status==='verloren').length;
+  const winrate = (won+lost) ? (won/(won+lost)*100) : 0;
+
+  const statRow = document.getElementById('statRow');
+  statRow.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Bilanz</div>
+      <div class="stat-value ${profit>0?'pos':profit<0?'neg':''}">${fmtEUR(profit)}</div>
+      <div class="stat-sub">${settled.length} abgerechnete Wetten</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ROI</div>
+      <div class="stat-value ${roi>0?'pos':roi<0?'neg':''}">${fmtPct(roi)}</div>
+      <div class="stat-sub">bezogen auf Einsatz</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Trefferquote</div>
+      <div class="stat-value">${(won+lost)?fmtPct(winrate):'–'}</div>
+      <div class="stat-sub">${won} gewonnen / ${lost} verloren</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Einsatz gesamt</div>
+      <div class="stat-value">${fmtEUR(totalStakeSettled+totalStakeOpen)}</div>
+      <div class="stat-sub">${fmtEUR(totalStakeOpen)} noch offen</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Wetten gesamt</div>
+      <div class="stat-value">${list.length}</div>
+      <div class="stat-sub">im aktuellen Filter</div>
+    </div>
+  `;
+}
+
+/* ---------------- Filters + List ---------------- */
+function renderFiltersAndList(){
+  const main = document.getElementById('mainContent');
+
+  if(bets.length === 0){
+    main.innerHTML = `
+      <div class="empty">
+        <h3>Noch keine Wetten erfasst</h3>
+        <p>Leg direkt los und trage deine erste Wette ein. Statistiken und Grafiken erscheinen automatisch, sobald Daten vorhanden sind.</p>
+        <button class="btn btn-gold" data-action="new-bet">+ Erste Wette erfassen</button>
+      </div>`;
+    return;
+  }
+
+  const sportsInData = [...new Set(bets.flatMap(b => b.type === 'combo' ? (b.legs||[]).map(l=>l.sport) : [b.sport]).filter(Boolean))].sort();
+  const nonEsportSports = sportsInData.filter(s=>!ESPORTS_GROUP.includes(s));
+  const esportSports = sportsInData.filter(s=>ESPORTS_GROUP.includes(s));
+  const list = getFiltered();
+
+  main.innerHTML = `
+    <div class="section-title">Analyse</div>
+    <div class="chart-grid" id="chartGrid"></div>
+
+    <div class="section-title">Wettverlauf</div>
+    <div class="filters">
+      <select id="fSport" class="grow">
+        <option value="">Alle Sportarten</option>
+        ${nonEsportSports.length ? `<optgroup label="Sportarten">${nonEsportSports.map(s=>`<option value="${s}" ${filters.sport===s?'selected':''}>${s}</option>`).join('')}</optgroup>` : ''}
+        ${esportSports.length ? `<optgroup label="Esports">
+          <option value="__esports__" ${filters.sport==='__esports__'?'selected':''}>Alle Esports (Valorant, LoL, CS2)</option>
+          ${esportSports.map(s=>`<option value="${s}" ${filters.sport===s?'selected':''}>${s}</option>`).join('')}
+        </optgroup>` : ''}
+      </select>
+      <select id="fStatus" class="grow">
+        <option value="">Alle Status</option>
+        <option value="offen" ${filters.status==='offen'?'selected':''}>Offen</option>
+        <option value="gewonnen" ${filters.status==='gewonnen'?'selected':''}>Gewonnen</option>
+        <option value="verloren" ${filters.status==='verloren'?'selected':''}>Verloren</option>
+        <option value="push" ${filters.status==='push'?'selected':''}>Push / Zurück</option>
+        <option value="cashout" ${filters.status==='cashout'?'selected':''}>Cashout</option>
+      </select>
+      <input type="text" id="fTeam" class="grow" placeholder="Team oder Event suchen…" value="${filters.team}">
+      <select id="fPeriod" class="grow">
+        <option value="all" ${filters.period==='all'?'selected':''}>Gesamter Zeitraum</option>
+        <option value="7d" ${filters.period==='7d'?'selected':''}>Letzte 7 Tage</option>
+        <option value="30d" ${filters.period==='30d'?'selected':''}>Letzte 30 Tage</option>
+        <option value="month" ${filters.period==='month'?'selected':''}>Dieser Monat</option>
+        <option value="year" ${filters.period==='year'?'selected':''}>Dieses Jahr</option>
+        <option value="custom" ${filters.period==='custom'?'selected':''}>Benutzerdefiniert…</option>
+      </select>
+      ${bookies.length ? `
+      <select id="fBookie" class="grow">
+        <option value="">Alle Bookies</option>
+        ${bookies.map(bk=>`<option value="${bk}" ${filters.bookie===bk?'selected':''}>${bk}</option>`).join('')}
+      </select>
+      ` : ''}
+      ${filters.period==='custom' ? `
+      <input type="date" id="fFrom" value="${filters.from}">
+      <input type="date" id="fTo" value="${filters.to}">
+      ` : ''}
+      <button class="btn btn-ghost btn-small" data-action="clear-filters">Filter zurücksetzen</button>
+    </div>
+
+    <div class="bet-list" id="betList"></div>
+  `;
+
+  document.getElementById('fSport').onchange = e=>{filters.sport=e.target.value; renderAll();};
+  document.getElementById('fStatus').onchange = e=>{filters.status=e.target.value; renderAll();};
+  const fBookieEl = document.getElementById('fBookie');
+  if(fBookieEl) fBookieEl.onchange = e=>{filters.bookie=e.target.value; renderAll();};
+  document.getElementById('fTeam').oninput = e=>{
+    filters.team = e.target.value;
+    const cursorPos = e.target.selectionStart;
+    renderAll();
+    const el = document.getElementById('fTeam');
+    if(el){ el.focus(); el.setSelectionRange(cursorPos, cursorPos); }
+  };
+  document.getElementById('fPeriod').onchange = e=>{
+    filters.period = e.target.value;
+    if(filters.period !== 'custom'){
+      const range = periodToRange(filters.period);
+      filters.from = range.from; filters.to = range.to;
+    }
+    renderAll();
+  };
+  const fFromEl = document.getElementById('fFrom');
+  const fToEl = document.getElementById('fTo');
+  if(fFromEl) fFromEl.onchange = e=>{filters.from=e.target.value; renderAll();};
+  if(fToEl) fToEl.onchange = e=>{filters.to=e.target.value; renderAll();};
+
+  const betList = document.getElementById('betList');
+  if(list.length === 0){
+    betList.innerHTML = `<div class="empty"><h3>Keine Treffer</h3><p>Für die aktuellen Filter wurden keine Wetten gefunden.</p></div>`;
+  } else {
+    const sorted = [...list].sort((a,b)=> b.date.localeCompare(a.date));
+    betList.innerHTML = sorted.map(b=>{
+      const r = computeResult(b);
+      const stampMap = {offen:'Offen', gewonnen:'Gewonnen', verloren:'Verloren', push:'Push', cashout:'Cashout'};
+      const isCombo = b.type === 'combo';
+      const event = isCombo ? `Kombiwette · ${(b.legs||[]).length} Tipps` : (b.teamB ? `${b.teamA} – ${b.teamB}` : b.teamA);
+      const metaLine = isCombo
+        ? `${fmtDate(b.date)}${b.bookie? ' · '+b.bookie:''}`
+        : `${b.sport}${b.league? ' · '+b.league:''} · ${fmtDate(b.date)}${b.bookie? ' · '+b.bookie:''}`;
+      const legLines = isCombo ? (b.legs||[]).map((l,i)=>`
+            <div class="bet-meta">${i+1}. ${l.teamA}${l.teamB? ' – '+l.teamB:''} — ${l.sport}${l.market? ' · '+l.market:''}${l.pick? ' · Tipp: '+l.pick:''} · @${Number(l.odds).toFixed(2)}</div>
+          `).join('') : (b.pick? `<div class="bet-meta">Tipp: ${b.pick}${b.market? ' ('+b.market+')':''}</div>`:'');
+      const bonusPct = Number(b.bonus)||0;
+      const bonusLine = (isCombo && bonusPct>0) ? `<div class="bet-meta" style="color:var(--win);">+${bonusPct}% Bonus · effektive Quote ${(Number(b.odds)*(1+bonusPct/100)).toFixed(2)}</div>` : '';
+      const freebetLine = b.freebet ? `<div class="bet-meta" style="color:var(--gold-light);">Freiwette · nur Nettogewinn zählt in die Statistik</div>` : '';
+      return `
+        <div class="bet-card">
+          <div class="perf"></div>
+          <span class="stamp ${b.status==='gewonnen'?'won':b.status==='verloren'?'lost':b.status==='push'?'push':b.status==='cashout'?'cashout':'open'}">${stampMap[b.status]}</span>
+          <div>
+            <div class="bet-event">${event || '(ohne Bezeichnung)'}</div>
+            <div class="bet-meta">${metaLine}</div>
+            ${legLines}
+            ${bonusLine}
+            ${freebetLine}
+          </div>
+          <div>
+            <div class="bet-col-label">Einsatz</div>
+            <div class="bet-col-value">${fmtEUR(Number(b.stake))}</div>
+          </div>
+          <div>
+            <div class="bet-col-label">${isCombo? 'Gesamtquote':'Quote'}</div>
+            <div class="bet-col-value">${Number(b.odds).toFixed(2)}</div>
+          </div>
+          <div>
+            <div class="bet-col-label">Ergebnis</div>
+            <div class="bet-col-value ${r.profit>0?'pos':r.profit<0?'neg':''}" style="${r.profit>0?'color:var(--win)':r.profit<0?'color:var(--loss)':''}">
+              ${r.profit===null? '–' : fmtEUR(r.profit)}
+            </div>
+          </div>
+          <div class="bet-actions">
+            ${b.status==='offen' ? `
+            <button class="icon-btn quick-won" data-action="mark-won" data-id="${b.id}">Gewonnen</button>
+            <button class="icon-btn quick-lost" data-action="mark-lost" data-id="${b.id}">Verloren</button>
+            <button class="icon-btn quick-cashout" data-action="mark-cashout" data-id="${b.id}">Cashout</button>
+            ` : ''}
+            <button class="icon-btn" data-action="edit" data-id="${b.id}">Bearbeiten</button>
+            <button class="icon-btn" data-action="delete" data-id="${b.id}">Löschen</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  renderChartsInto(document.getElementById('chartGrid'), list);
+}
+
+/* ---------------- Charts ---------------- */
+function destroyCharts(){
+  if(!CHART_AVAILABLE) return;
+  Object.values(charts).forEach(c=>c && c.destroy());
+  charts = {};
+}
+
+function renderCharts(){
+  const grid = document.getElementById('chartGrid');
+  if(grid) renderChartsInto(grid, getFiltered());
+}
+
+function renderChartsInto(grid, list){
+  destroyCharts();
+
+  if(!CHART_AVAILABLE){
+    grid.innerHTML = `
+      <div class="chart-card">
+        <h3>Diagramme nicht verfügbar</h3>
+        <div class="chart-empty">Die Diagramm-Bibliothek (Chart.js) konnte nicht von der externen CDN geladen werden — vermutlich blockiert deine Netzwerkumgebung externe Skripte. Erfassen, Bearbeiten, Löschen, Filtern und Speichern der Wetten funktionieren unabhängig davon normal.</div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = `
+    <div class="chart-card">
+      <div class="chart-tabs">
+        ${CHART_TABS.map(t=>`<button class="chart-tab ${activeChartTab===t.id?'active':''}" data-action="chart-tab" data-tab="${t.id}">${t.label}</button>`).join('')}
+      </div>
+      <div class="chart-wrap-lg" id="cw-active"></div>
+    </div>
+  `;
+
+  const target = document.getElementById('cw-active');
+  const settled = list.filter(b=>b.status!=='offen').sort((a,b)=>a.date.localeCompare(b.date));
+
+  if(activeChartTab === 'profit') renderProfitChart(target, settled);
+  else if(activeChartTab === 'status') renderStatusChart(target, list);
+  else if(activeChartTab === 'sport') renderSportChart(target, settled);
+  else if(activeChartTab === 'team') renderTeamChart(target, settled);
+  else if(activeChartTab === 'bookie') renderBookieChart(target, settled);
+}
+
+function renderProfitChart(target, settled){
+  if(settled.length === 0){
+    target.innerHTML = `<div class="chart-empty">Noch keine abgerechneten Wetten für einen Verlauf.</div>`;
+    return;
+  }
+  let running = 0;
+  const labels = settled.map(b=>fmtDate(b.date));
+  const points = settled.map(b=>{ running += computeResult(b).profit; return Math.round(running*100)/100; });
+  const GREEN = '#3f8f5c', RED = '#b5473a';
+  const GREEN_FILL = 'rgba(63,143,92,.18)', RED_FILL = 'rgba(181,71,58,.18)';
+  const canvas = document.createElement('canvas'); target.appendChild(canvas);
+  charts.profit = new Chart(canvas, {
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Bilanz', data:points,
+      borderColor: GREEN, backgroundColor: GREEN_FILL,
+      fill:true, tension:.2, pointRadius:2.5,
+      pointBackgroundColor: ctx => (ctx.raw >= 0 ? GREEN : RED),
+      pointBorderColor: ctx => (ctx.raw >= 0 ? GREEN : RED),
+      segment:{
+        borderColor: ctx => (ctx.p0.parsed.y >= 0 && ctx.p1.parsed.y >= 0) ? GREEN : (ctx.p0.parsed.y < 0 && ctx.p1.parsed.y < 0) ? RED : (ctx.p1.parsed.y >= 0 ? GREEN : RED),
+        backgroundColor: ctx => (ctx.p1.parsed.y >= 0 ? GREEN_FILL : RED_FILL)
+      }
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{ ticks:{maxTicksLimit:8, autoSkip:true}, grid:{display:false} },
+        y:{ ticks:{ callback:v=>fmtEUR(v) }, grid:{ color: ctx => ctx.tick.value === 0 ? 'rgba(226,232,240,.35)' : 'rgba(226,232,240,.08)' } }
+      },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmtEUR(ctx.parsed.y) } } }
+    }
+  });
+}
+
+function renderStatusChart(target, list){
+  const statusCounts = {offen:0, gewonnen:0, verloren:0, push:0, cashout:0};
+  list.forEach(b=>statusCounts[b.status]++);
+  if(list.length === 0){
+    target.innerHTML = `<div class="chart-empty">Keine Wetten im aktuellen Filter.</div>`;
+    return;
+  }
+  const canvas = document.createElement('canvas'); target.appendChild(canvas);
+  charts.status = new Chart(canvas, {
+    type:'doughnut',
+    data:{
+      labels:['Offen','Gewonnen','Verloren','Push','Cashout'],
+      datasets:[{ data:[statusCounts.offen, statusCounts.gewonnen, statusCounts.verloren, statusCounts.push, statusCounts.cashout],
+        backgroundColor:['#3b82f6','#3f8f5c','#b5473a','#7987a1','#64748b'], borderColor:'#0e1218', borderWidth:2 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{boxWidth:10,padding:12} } } }
+  });
+}
+
+function renderSportChart(target, settled){
+  const sportMap = {};
+  settled.forEach(b=>{
+    const key = b.type === 'combo' ? 'Kombiwette' : b.sport;
+    sportMap[key] = (sportMap[key]||0) + computeResult(b).profit;
+  });
+  const sportEntries = Object.entries(sportMap).sort((a,b)=>b[1]-a[1]);
+  if(sportEntries.length === 0){
+    target.innerHTML = `<div class="chart-empty">Noch keine abgerechneten Wetten.</div>`;
+    return;
+  }
+  const canvas = document.createElement('canvas'); target.appendChild(canvas);
+  charts.sport = new Chart(canvas, {
+    type:'bar',
+    data:{ labels:sportEntries.map(e=>e[0]), datasets:[{ data:sportEntries.map(e=>Math.round(e[1]*100)/100),
+      backgroundColor: sportEntries.map(e=>e[1]>=0?'#3f8f5c':'#b5473a'), borderRadius:4, maxBarThickness:28 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ ticks:{ callback:v=>fmtEUR(v) } }, y:{ grid:{display:false} } },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmtEUR(ctx.parsed.x) } } } }
+  });
+}
+
+function renderTeamChart(target, settled){
+  const teamMap = {};
+  settled.forEach(b=>{
+    const r = computeResult(b).profit;
+    if(b.type === 'combo'){
+      (b.legs||[]).forEach(l=>{
+        [l.teamA, l.teamB].forEach(t=>{ if(t && t.trim()){ teamMap[t] = (teamMap[t]||0) + r; } });
+      });
+    } else {
+      [b.teamA, b.teamB].forEach(t=>{ if(t && t.trim()){ teamMap[t] = (teamMap[t]||0) + r; } });
+    }
+  });
+  const teamEntries = Object.entries(teamMap).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,10)
+    .sort((a,b)=>b[1]-a[1]);
+  if(teamEntries.length === 0){
+    target.innerHTML = `<div class="chart-empty">Noch keine Mannschaften mit abgerechneten Wetten.</div>`;
+    return;
+  }
+  const canvas = document.createElement('canvas'); target.appendChild(canvas);
+  charts.team = new Chart(canvas, {
+    type:'bar',
+    data:{ labels:teamEntries.map(e=>e[0]), datasets:[{ data:teamEntries.map(e=>Math.round(e[1]*100)/100),
+      backgroundColor: teamEntries.map(e=>e[1]>=0?'#3f8f5c':'#b5473a'), borderRadius:4, maxBarThickness:24 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ ticks:{ callback:v=>fmtEUR(v) } }, y:{ grid:{display:false}, ticks:{ font:{size:10.5} } } },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmtEUR(ctx.parsed.x) } } } }
+  });
+}
+
+function renderBookieChart(target, settled){
+  const bookieMap = {};
+  settled.forEach(b=>{
+    const key = (b.bookie && b.bookie.trim()) ? b.bookie : 'Ohne Bookie';
+    bookieMap[key] = (bookieMap[key]||0) + computeResult(b).profit;
+  });
+  const entries = Object.entries(bookieMap).sort((a,b)=>b[1]-a[1]);
+  if(entries.length === 0){
+    target.innerHTML = `<div class="chart-empty">Noch keine abgerechneten Wetten.</div>`;
+    return;
+  }
+  const canvas = document.createElement('canvas'); target.appendChild(canvas);
+  charts.bookie = new Chart(canvas, {
+    type:'bar',
+    data:{ labels:entries.map(e=>e[0]), datasets:[{ data:entries.map(e=>Math.round(e[1]*100)/100),
+      backgroundColor: entries.map(e=>e[1]>=0?'#3f8f5c':'#b5473a'), borderRadius:4, maxBarThickness:28 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ ticks:{ callback:v=>fmtEUR(v) } }, y:{ grid:{display:false} } },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmtEUR(ctx.parsed.x) } } } }
+  });
+}
+
+/* ---------------- Calendar ---------------- */
+function renderCalendar(){
+  const wrap = document.getElementById('calendarWrap');
+  const list = getFiltered();
+  const settled = list.filter(b=>b.status!=='offen');
+  const dayProfit = {};
+  const dayHasBet = {};
+  const dayHasOpen = {};
+  settled.forEach(b=>{
+    const p = computeResult(b).profit;
+    dayProfit[b.date] = (dayProfit[b.date]||0) + p;
+    dayHasBet[b.date] = true;
+  });
+  list.filter(b=>b.status==='offen').forEach(b=>{ dayHasOpen[b.date] = true; });
+
+  const label = calendarMode === 'month'
+    ? `${MONTH_NAMES[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`
+    : `${calendarDate.getFullYear()}`;
+
+  wrap.innerHTML = `
+    <div class="calendar-toolbar">
+      <div class="calendar-toggle">
+        <button class="chart-tab ${calendarMode==='month'?'active':''}" data-action="calendar-mode" data-mode="month">Monat</button>
+        <button class="chart-tab ${calendarMode==='year'?'active':''}" data-action="calendar-mode" data-mode="year">Jahr</button>
+      </div>
+      <div class="calendar-nav">
+        <button class="icon-btn" data-action="calendar-prev">←</button>
+        <div class="calendar-label">${label}</div>
+        <button class="icon-btn" data-action="calendar-next">→</button>
+        <button class="btn btn-ghost btn-small" data-action="calendar-today">Heute</button>
+      </div>
+    </div>
+    <div id="calendarGrid"></div>
+  `;
+
+  const grid = document.getElementById('calendarGrid');
+  if(calendarMode === 'month') renderCalendarMonth(grid, dayProfit, dayHasBet, dayHasOpen);
+  else renderCalendarYear(grid, dayProfit, dayHasBet);
+}
+
+function renderCalendarMonth(grid, dayProfit, dayHasBet, dayHasOpen){
+  const year = calendarDate.getFullYear(), month = calendarDate.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startWeekday = (firstOfMonth.getDay() + 6) % 7; // Monday = 0
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
+
+  let cellsHtml = '';
+  for(let i=0; i<totalCells; i++){
+    const dayNum = i - startWeekday + 1;
+    if(dayNum < 1 || dayNum > daysInMonth){ cellsHtml += `<div class="cal-cell empty"></div>`; continue; }
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    const profit = dayProfit[dateStr] || 0;
+    const hasBet = !!dayHasBet[dateStr];
+    const hasOpen = !!dayHasOpen[dateStr];
+    const cls = hasBet ? (profit>0 ? 'pos' : profit<0 ? 'neg' : '') : '';
+    cellsHtml += `
+      <div class="cal-cell ${cls}" data-action="calendar-day" data-date="${dateStr}">
+        <div class="cal-daynum">${dayNum}${hasOpen ? '<span class="cal-dot" title="offene Wette"></span>' : ''}</div>
+        ${hasBet ? `<div class="cal-pl">${fmtEUR(profit)}</div>` : ''}
+      </div>
+    `;
+  }
+  grid.innerHTML = `
+    <div class="cal-weekdays">${WEEKDAY_NAMES.map(d=>`<div>${d}</div>`).join('')}</div>
+    <div class="cal-grid">${cellsHtml}</div>
+  `;
+}
+
+function renderCalendarYear(grid, dayProfit, dayHasBet){
+  const year = calendarDate.getFullYear();
+  const monthTotals = Array(12).fill(0);
+  const monthHas = Array(12).fill(false);
+  Object.keys(dayProfit).forEach(d=>{
+    const [y, m] = d.split('-').map(Number);
+    if(y === year){ monthTotals[m-1] += dayProfit[d]; monthHas[m-1] = true; }
+  });
+  const tiles = MONTH_NAMES.map((name, i)=>{
+    const has = monthHas[i];
+    const total = monthTotals[i];
+    const cls = has ? (total>0 ? 'pos' : total<0 ? 'neg' : '') : '';
+    return `
+      <div class="cal-month-tile ${cls}" data-action="calendar-month-select" data-month="${i}">
+        <div class="cal-month-name">${name}</div>
+        ${has ? `<div class="cal-pl">${fmtEUR(total)}</div>` : `<div class="cal-pl muted">–</div>`}
+      </div>
+    `;
+  }).join('');
+  grid.innerHTML = `<div class="cal-year-grid">${tiles}</div>`;
+}
+
+/* ---------------- Form ---------------- */
+function openTypeChooser(){
+  editingId = null;
+  comboLegs = [];
+  const slipContainer = document.getElementById('slipContainer');
+  slipContainer.innerHTML = `
+    <div class="slip">
+      <div class="slip-head">
+        <h2>Neue Wette</h2>
+        <button class="slip-close" data-action="close-form">Schließen ✕</button>
+      </div>
+      <p style="margin:0 0 18px;color:var(--ink-soft);font-size:13.5px;">Was möchtest du erfassen?</p>
+      <div class="choice-row">
+        <button type="button" class="choice-card" data-action="choose-single">
+          <h4>Einzelwette</h4>
+          <p>Eine Wette auf ein Ereignis mit einer Quote.</p>
+        </button>
+        <button type="button" class="choice-card" data-action="choose-combo">
+          <h4>Kombiwette</h4>
+          <p>Mehrere Tipps auf einem Schein, Gesamtquote wird automatisch berechnet.</p>
+        </button>
+      </div>
+    </div>
+  `;
+  slipContainer.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function openForm(bet){
+  editingId = bet ? bet.id : null;
+  const slipContainer = document.getElementById('slipContainer');
+  const today = new Date().toISOString().slice(0,10);
+  const b = bet || { date:today, sport:'Fußball', league:'', teamA:'', teamB:'', market:'', pick:'', odds:'', stake:'', status:'offen', note:'' };
+
+  let marketSelectValue = '';
+  let marketCustomValue = '';
+  if(b.market){
+    if(MARKET_OPTIONS.includes(b.market)){ marketSelectValue = b.market; }
+    else { marketSelectValue = 'Sonstiges'; marketCustomValue = b.market; }
+  }
+
+  slipContainer.innerHTML = `
+    <div class="slip">
+      <div class="slip-head">
+        <h2>${bet? 'Wette bearbeiten':'Neue Wette buchen'}</h2>
+        <button class="slip-close" data-action="close-form">Schließen ✕</button>
+      </div>
+      <form id="betForm">
+        <div class="form-grid">
+          <div class="field">
+            <label>Datum</label>
+            <input type="date" name="date" required value="${b.date}">
+          </div>
+          <div class="field">
+            <label>Sportart</label>
+            <select name="sport" required>
+              ${SPORTS.map(s=>`<option ${b.sport===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field span2">
+            <label>Liga / Wettbewerb (optional)</label>
+            <input type="text" name="league" value="${b.league||''}" placeholder="z. B. Bundesliga">
+          </div>
+          <div class="field">
+            <label>Team A</label>
+            <input type="text" name="teamA" value="${b.teamA||''}" placeholder="z. B. Bayern München">
+          </div>
+          <div class="field">
+            <label>Team B (optional)</label>
+            <input type="text" name="teamB" value="${b.teamB||''}" placeholder="z. B. Dortmund">
+          </div>
+          <div class="field">
+            <label>Markt (optional)</label>
+            <select name="marketSelect" id="marketSelect">
+              <option value="">– kein Markt –</option>
+              ${MARKET_OPTIONS.map(m=>`<option value="${m}" ${marketSelectValue===m?'selected':''}>${m}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field" id="marketCustomWrap" style="${marketSelectValue==='Sonstiges'?'':'display:none'}">
+            <label>Markt – eigene Eingabe</label>
+            <input type="text" name="marketCustom" id="marketCustom" value="${marketCustomValue}" placeholder="z. B. Ecken über 9.5">
+          </div>
+          <div class="field">
+            <label>Dein Tipp (optional)</label>
+            <input type="text" name="pick" value="${b.pick||''}" placeholder="z. B. Bayern München">
+          </div>
+          <div class="field">
+            <label>Quote</label>
+            <input type="number" step="0.01" min="1" name="odds" required value="${b.odds}">
+          </div>
+          <div class="field">
+            <label>Einsatz (€)</label>
+            <input type="number" step="0.01" min="0" name="stake" required value="${b.stake}">
+          </div>
+          <div class="field">
+            <label>Bookie (optional)</label>
+            <select name="bookie">
+              <option value="">– kein Bookie –</option>
+              ${bookies.map(bk=>`<option value="${bk}" ${b.bookie===bk?'selected':''}>${bk}</option>`).join('')}
+            </select>
+            ${bookies.length===0 ? `<span style="font-size:11px;color:var(--ink-soft);margin-top:2px;">Noch keine Bookies angelegt – über "Bookies verwalten" oben hinzufügen.</span>` : ''}
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select name="status" id="statusSelect" required>
+              <option value="offen" ${b.status==='offen'?'selected':''}>Offen</option>
+              <option value="gewonnen" ${b.status==='gewonnen'?'selected':''}>Gewonnen</option>
+              <option value="verloren" ${b.status==='verloren'?'selected':''}>Verloren</option>
+              <option value="push" ${b.status==='push'?'selected':''}>Push / Zurück</option>
+              <option value="cashout" ${b.status==='cashout'?'selected':''}>Cashout</option>
+            </select>
+          </div>
+          <div class="field" id="cashoutAmountWrap" style="${b.status==='cashout'?'':'display:none'}">
+            <label>Cashout-Betrag (€)</label>
+            <input type="number" step="0.01" min="0" name="cashoutAmount" value="${b.cashoutAmount||''}" placeholder="ausgezahlter Betrag">
+          </div>
+          <div class="field field-checkbox">
+            <label class="checkbox-label">
+              <input type="checkbox" name="freebet" ${b.freebet?'checked':''}>
+              Freiwette
+            </label>
+          </div>
+          <div class="field span2">
+            <label>Notiz (optional)</label>
+            <input type="text" name="note" value="${b.note||''}" placeholder="Freitext">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" data-action="close-form">Abbrechen</button>
+            <button type="button" class="btn btn-gold" data-action="save-bet">${bet? 'Änderungen speichern':'Wette speichern'}</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('betForm').onsubmit = e=>{ e.preventDefault(); saveBetForm(); };
+  document.getElementById('marketSelect').onchange = e=>{
+    document.getElementById('marketCustomWrap').style.display = e.target.value==='Sonstiges' ? '' : 'none';
+  };
+  document.getElementById('statusSelect').onchange = e=>{
+    document.getElementById('cashoutAmountWrap').style.display = e.target.value==='cashout' ? '' : 'none';
+  };
+  slipContainer.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function closeForm(){
+  editingId = null;
+  comboLegs = [];
+  document.getElementById('slipContainer').innerHTML = '';
+}
+
+async function saveBetForm(){
+  const form = document.getElementById('betForm');
+  if(!form) return;
+  if(form.checkValidity && !form.checkValidity()){
+    if(form.reportValidity) form.reportValidity();
+    return;
+  }
+  const fd = new FormData(form);
+  const raw = Object.fromEntries(fd.entries());
+  const market = raw.marketSelect === 'Sonstiges' ? (raw.marketCustom||'').trim() : raw.marketSelect;
+  const data = {...raw, market, type:'single', freebet: !!form.querySelector('input[name="freebet"]').checked};
+  delete data.marketSelect;
+  delete data.marketCustom;
+  if(editingId){
+    const idx = bets.findIndex(b=>b.id===editingId);
+    if(idx>-1) bets[idx] = {...bets[idx], ...data};
+  } else {
+    bets.push({ id: uid(), ...data });
+  }
+  await saveBets();
+  closeForm();
+  renderAll();
+}
+
+/* ---------------- Combo bet (Kombiwette) ---------------- */
+function legFieldsTemplate(leg){
+  leg = leg || {sport:'Fußball', league:'', teamA:'', teamB:'', market:'', pick:'', odds:''};
+  let marketSelectValue = '', marketCustomValue = '';
+  if(leg.market){
+    if(MARKET_OPTIONS.includes(leg.market)){ marketSelectValue = leg.market; }
+    else { marketSelectValue = 'Sonstiges'; marketCustomValue = leg.market; }
+  }
+  return `
+    <div class="form-grid" id="legFieldsGrid">
+      <div class="field">
+        <label>Sportart</label>
+        <select id="legSport">${SPORTS.map(s=>`<option ${leg.sport===s?'selected':''}>${s}</option>`).join('')}</select>
+      </div>
+      <div class="field span2">
+        <label>Liga / Wettbewerb (optional)</label>
+        <input type="text" id="legLeague" value="${leg.league||''}" placeholder="z. B. Bundesliga">
+      </div>
+      <div class="field">
+        <label>Team A</label>
+        <input type="text" id="legTeamA" value="${leg.teamA||''}" placeholder="z. B. Bayern München">
+      </div>
+      <div class="field">
+        <label>Team B (optional)</label>
+        <input type="text" id="legTeamB" value="${leg.teamB||''}" placeholder="z. B. Dortmund">
+      </div>
+      <div class="field">
+        <label>Markt (optional)</label>
+        <select id="legMarketSelect">
+          <option value="">– kein Markt –</option>
+          ${MARKET_OPTIONS.map(m=>`<option value="${m}" ${marketSelectValue===m?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" id="legMarketCustomWrap" style="${marketSelectValue==='Sonstiges'?'':'display:none'}">
+        <label>Markt – eigene Eingabe</label>
+        <input type="text" id="legMarketCustom" value="${marketCustomValue}" placeholder="z. B. Ecken über 9.5">
+      </div>
+      <div class="field">
+        <label>Dein Tipp (optional)</label>
+        <input type="text" id="legPick" value="${leg.pick||''}" placeholder="z. B. Bayern München">
+      </div>
+      <div class="field">
+        <label>Quote</label>
+        <input type="number" step="0.01" min="1" id="legOdds" value="${leg.odds||''}" placeholder="z. B. 1.75">
+      </div>
+    </div>
+  `;
+}
+
+function bindLegMarketToggle(){
+  const sel = document.getElementById('legMarketSelect');
+  if(sel) sel.onchange = e=>{
+    document.getElementById('legMarketCustomWrap').style.display = e.target.value==='Sonstiges' ? '' : 'none';
+  };
+}
+
+function renderLegsListHTML(){
+  if(comboLegs.length === 0){
+    return `<p style="color:var(--ink-soft);font-size:12.5px;margin:0 0 16px;">Noch keine Tipps hinzugefügt.</p>`;
+  }
+  return `
+    <div class="legs-list">
+      ${comboLegs.map((l,i)=>`
+        <div class="leg-row">
+          <div>
+            <strong>${i+1}. ${l.teamA}${l.teamB? ' – '+l.teamB:''}</strong>
+            <div class="leg-meta">${l.sport}${l.league? ' · '+l.league:''}${l.market? ' · '+l.market:''}${l.pick? ' · Tipp: '+l.pick:''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="leg-odds">@${Number(l.odds).toFixed(2)}</span>
+            <button type="button" class="icon-btn" data-action="remove-leg" data-index="${i}">Entfernen</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function updateLegsListAndOdds(){
+  const wrap = document.getElementById('legsListWrap');
+  if(wrap) wrap.innerHTML = renderLegsListHTML();
+  const oddsTotal = comboLegs.reduce((p,l)=>p*Number(l.odds||1), 1);
+  const oddsEl = document.getElementById('comboTotalOdds');
+  if(oddsEl) oddsEl.textContent = comboLegs.length ? oddsTotal.toFixed(2) : '–';
+  updateEffectiveOddsDisplay();
+}
+
+function updateEffectiveOddsDisplay(){
+  const effEl = document.getElementById('comboEffectiveOdds');
+  if(!effEl) return;
+  const bonusEl = document.getElementById('comboBonus');
+  const bonus = bonusEl ? (Number(bonusEl.value)||0) : 0;
+  const rawOdds = comboLegs.reduce((p,l)=>p*Number(l.odds||1), 1);
+  const effOdds = rawOdds * (1 + bonus/100);
+  effEl.textContent = comboLegs.length ? effOdds.toFixed(2) : '–';
+}
+
+function showComboLegError(msg){
+  const el = document.getElementById('legError');
+  if(el){ el.textContent = msg; el.style.display = 'block'; }
+}
+
+function collectCurrentLegFromForm(){
+  const teamAEl = document.getElementById('legTeamA');
+  const oddsEl = document.getElementById('legOdds');
+  if(!teamAEl || !oddsEl) return null;
+  const teamA = teamAEl.value.trim();
+  const odds = oddsEl.value;
+  if(!teamA || !odds) return null;
+  const marketSelectVal = document.getElementById('legMarketSelect').value;
+  const marketCustomVal = document.getElementById('legMarketCustom') ? document.getElementById('legMarketCustom').value.trim() : '';
+  const market = marketSelectVal === 'Sonstiges' ? marketCustomVal : marketSelectVal;
+  return {
+    sport: document.getElementById('legSport').value,
+    league: document.getElementById('legLeague').value.trim(),
+    teamA,
+    teamB: document.getElementById('legTeamB').value.trim(),
+    market,
+    pick: document.getElementById('legPick').value.trim(),
+    odds: Number(odds)
+  };
+}
+
+function resetLegFields(){
+  const grid = document.getElementById('legFieldsGrid');
+  if(!grid) return;
+  grid.outerHTML = legFieldsTemplate(null);
+  bindLegMarketToggle();
+  const errEl = document.getElementById('legError');
+  if(errEl) errEl.style.display = 'none';
+}
+
+function addComboLeg(){
+  const leg = collectCurrentLegFromForm();
+  if(!leg){
+    showComboLegError('Bitte mindestens Team A und die Quote für diesen Tipp angeben.');
+    return;
+  }
+  comboLegs.push(leg);
+  resetLegFields();
+  updateLegsListAndOdds();
+}
+
+function removeComboLeg(index){
+  comboLegs.splice(Number(index), 1);
+  updateLegsListAndOdds();
+}
+
+function openComboForm(bet){
+  editingId = bet ? bet.id : null;
+  comboLegs = bet && bet.legs ? JSON.parse(JSON.stringify(bet.legs)) : [];
+  const slipContainer = document.getElementById('slipContainer');
+  const today = new Date().toISOString().slice(0,10);
+  const meta = bet || { date:today, stake:'', status:'offen', note:'' };
+  const startOdds = comboLegs.length ? comboLegs.reduce((p,l)=>p*Number(l.odds||1),1).toFixed(2) : '–';
+
+  slipContainer.innerHTML = `
+    <div class="slip">
+      <div class="slip-head">
+        <h2>${bet? 'Kombiwette bearbeiten':'Neue Kombiwette'}</h2>
+        <button class="slip-close" data-action="close-form">Schließen ✕</button>
+      </div>
+
+      <div class="section-title" style="margin-top:0;">Getippte Spiele</div>
+      <div id="legsListWrap">${renderLegsListHTML()}</div>
+
+      <div class="section-title">Nächsten Tipp hinzufügen</div>
+      ${legFieldsTemplate(null)}
+      <p id="legError" style="display:none;color:var(--loss);font-size:12.5px;margin:-6px 0 14px;"></p>
+      <div style="margin-bottom:26px;">
+        <button type="button" class="btn btn-outline-ink" data-action="add-leg">+ Nächster Tipp</button>
+      </div>
+
+      <div class="section-title">Gesamtquote &amp; Einsatz</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Gesamtquote</label>
+          <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;padding:9px 0;" id="comboTotalOdds">${startOdds}</div>
+        </div>
+        <div class="field">
+          <label>Bonus (optional, %)</label>
+          <input type="number" step="0.1" min="0" id="comboBonus" value="${meta.bonus||''}" placeholder="z. B. 5">
+        </div>
+        <div class="field">
+          <label>Effektive Quote (inkl. Bonus)</label>
+          <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;padding:9px 0;color:var(--win);" id="comboEffectiveOdds">${startOdds}</div>
+        </div>
+        <div class="field field-checkbox">
+          <label class="checkbox-label">
+            <input type="checkbox" id="comboFreebet" ${meta.freebet?'checked':''}>
+            Freiwette
+          </label>
+        </div>
+        <div class="field">
+          <label>Datum</label>
+          <input type="date" id="comboDate" value="${meta.date}">
+        </div>
+        <div class="field">
+          <label>Bookie (optional)</label>
+          <select id="comboBookie">
+            <option value="">– kein Bookie –</option>
+            ${bookies.map(bk=>`<option value="${bk}" ${meta.bookie===bk?'selected':''}>${bk}</option>`).join('')}
+          </select>
+          ${bookies.length===0 ? `<span style="font-size:11px;color:var(--ink-soft);margin-top:2px;">Noch keine Bookies angelegt – über "Bookies verwalten" oben hinzufügen.</span>` : ''}
+        </div>
+        <div class="field">
+          <label>Einsatz (€)</label>
+          <input type="number" step="0.01" min="0" id="comboStake" value="${meta.stake}">
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="comboStatus">
+            <option value="offen" ${meta.status==='offen'?'selected':''}>Offen</option>
+            <option value="gewonnen" ${meta.status==='gewonnen'?'selected':''}>Gewonnen</option>
+            <option value="verloren" ${meta.status==='verloren'?'selected':''}>Verloren</option>
+            <option value="push" ${meta.status==='push'?'selected':''}>Push / Zurück</option>
+            <option value="cashout" ${meta.status==='cashout'?'selected':''}>Cashout</option>
+          </select>
+        </div>
+        <div class="field" id="comboCashoutAmountWrap" style="${meta.status==='cashout'?'':'display:none'}">
+          <label>Cashout-Betrag (€)</label>
+          <input type="number" step="0.01" min="0" id="comboCashoutAmount" value="${meta.cashoutAmount||''}" placeholder="ausgezahlter Betrag">
+        </div>
+        <div class="field span2">
+          <label>Notiz (optional)</label>
+          <input type="text" id="comboNote" value="${meta.note||''}" placeholder="Freitext">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" data-action="close-form">Abbrechen</button>
+          <button type="button" class="btn btn-gold" data-action="save-combo">${bet? 'Änderungen speichern':'Kombiwette speichern'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  bindLegMarketToggle();
+  const comboBonusEl = document.getElementById('comboBonus');
+  if(comboBonusEl) comboBonusEl.oninput = updateEffectiveOddsDisplay;
+  document.getElementById('comboStatus').onchange = e=>{
+    document.getElementById('comboCashoutAmountWrap').style.display = e.target.value==='cashout' ? '' : 'none';
+  };
+  slipContainer.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function saveComboForm(){
+  const pendingLeg = collectCurrentLegFromForm();
+  let legs = [...comboLegs];
+  if(pendingLeg) legs.push(pendingLeg);
+  if(legs.length === 0){
+    showComboLegError('Bitte mindestens einen Tipp hinzufügen, bevor du speicherst.');
+    return;
+  }
+  const date = document.getElementById('comboDate').value;
+  const stake = document.getElementById('comboStake').value;
+  const bonus = document.getElementById('comboBonus').value;
+  const freebet = document.getElementById('comboFreebet').checked;
+  const bookie = document.getElementById('comboBookie') ? document.getElementById('comboBookie').value : '';
+  const status = document.getElementById('comboStatus').value;
+  const cashoutAmount = document.getElementById('comboCashoutAmount') ? document.getElementById('comboCashoutAmount').value : '';
+  const note = document.getElementById('comboNote').value.trim();
+  if(!date || stake === ''){
+    showComboLegError('Bitte Datum und Einsatz für die Kombiwette angeben.');
+    return;
+  }
+  const odds = legs.reduce((p,l)=>p*Number(l.odds||1), 1);
+  const data = { type:'combo', legs, odds, bonus: Number(bonus)||0, freebet, bookie, stake, status, cashoutAmount, date, note };
+  if(editingId){
+    const idx = bets.findIndex(b=>b.id===editingId);
+    if(idx>-1) bets[idx] = {...bets[idx], ...data, id: editingId};
+  } else {
+    bets.push({ id: uid(), ...data });
+  }
+  await saveBets();
+  closeForm();
+  renderAll();
+}
+
+function editBet(id){
+  const bet = bets.find(b=>b.id===id);
+  if(!bet) return;
+  if(bet.type === 'combo') openComboForm(bet);
+  else openForm(bet);
+}
+
+function deleteBet(id){
+  showConfirm('Diese Wette wirklich löschen?', async ()=>{
+    bets = bets.filter(b=>b.id!==id);
+    await saveBets();
+    renderAll();
+  });
+}
+
+function resetAllBets(){
+  showConfirm('Wirklich ALLE erfassten Wetten unwiderruflich löschen?', async ()=>{
+    bets = [];
+    await saveBets();
+    closeForm();
+    renderApp();
+  });
+}
+
+function loadDemoData(){
+  const proceed = async ()=>{
+    const demo = [
+      {sport:'Fußball', league:'Bundesliga', teamA:'Bayern München', teamB:'Dortmund', market:'1X2 (Sieger)', pick:'Bayern München', odds:1.75, stake:20, status:'gewonnen', date:'2026-05-02', note:''},
+      {sport:'Fußball', league:'Bundesliga', teamA:'Leverkusen', teamB:'RB Leipzig', market:'Über 2,5 Tore/Punkte', pick:'Über 2.5', odds:1.9, stake:15, status:'verloren', date:'2026-05-09', note:''},
+      {sport:'Tennis', league:'ATP', teamA:'Alcaraz', teamB:'Sinner', market:'1X2 (Sieger)', pick:'Alcaraz', odds:2.1, stake:25, status:'gewonnen', date:'2026-05-14', note:''},
+      {sport:'Basketball', league:'NBA', teamA:'Celtics', teamB:'Nuggets', market:'Handicap', pick:'Celtics -4.5', odds:1.95, stake:30, status:'verloren', date:'2026-05-20', note:''},
+      {sport:'Fußball', league:'Champions League', teamA:'Real Madrid', teamB:'Man City', market:'1X2 (Sieger)', pick:'Real Madrid', odds:2.4, stake:20, status:'gewonnen', date:'2026-05-27', note:''},
+      {sport:'Eishockey', league:'NHL', teamA:'Rangers', teamB:'Oilers', market:'1X2 (Sieger)', pick:'Oilers', odds:2.05, stake:15, status:'push', date:'2026-06-01', note:''},
+      {sport:'Fußball', league:'Bundesliga', teamA:'Bayern München', teamB:'Leverkusen', market:'1X2 (Sieger)', pick:'Bayern München', odds:1.6, stake:25, status:'gewonnen', date:'2026-06-08', note:''},
+      {sport:'Basketball', league:'NBA', teamA:'Nuggets', teamB:'Celtics', market:'1X2 (Sieger)', pick:'Nuggets', odds:2.2, stake:20, status:'verloren', date:'2026-06-12', note:''},
+      {sport:'Tennis', league:'ATP', teamA:'Sinner', teamB:'Alcaraz', market:'1X2 (Sieger)', pick:'Sinner', odds:1.85, stake:20, status:'gewonnen', date:'2026-06-18', note:''},
+      {sport:'Fußball', league:'Bundesliga', teamA:'Dortmund', teamB:'RB Leipzig', market:'Beide Teams treffen (BTTS)', pick:'Ja', odds:1.7, stake:15, status:'offen', date:'2026-07-05', note:''},
+      {sport:'Valorant', league:'VCT', teamA:'Sentinels', teamB:'Fnatic', market:'1X2 (Sieger)', pick:'Sentinels', odds:1.8, stake:15, status:'gewonnen', date:'2026-06-22', note:''},
+      {sport:'League of Legends', league:'LEC', teamA:'G2 Esports', teamB:'Fnatic', market:'1X2 (Sieger)', pick:'G2 Esports', odds:1.65, stake:20, status:'gewonnen', date:'2026-06-25', note:''},
+      {sport:'CS2', league:'IEM', teamA:'NAVI', teamB:'FaZe', market:'1X2 (Sieger)', pick:'FaZe', odds:2.3, stake:15, status:'verloren', date:'2026-06-29', note:''}
+    ].map(d=>({ id: uid(), ...d }));
+    bets = bets.concat(demo);
+    await saveBets();
+    renderApp();
+  };
+  if(bets.length){ showConfirm('Beispieldaten zu deinen bestehenden Wetten hinzufügen?', proceed); }
+  else { proceed(); }
+}
+
+/* ---------------- Custom confirm dialog (avoids native window.confirm) ---------------- */
+let pendingConfirmAction = null;
+function showConfirm(message, onConfirm){
+  pendingConfirmAction = onConfirm;
+  document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmOverlay').style.display = 'flex';
+}
+function hideConfirm(){
+  document.getElementById('confirmOverlay').style.display = 'none';
+  pendingConfirmAction = null;
+}
+
+let pendingPromptAction = null;
+function showPrompt(message, defaultValue, onConfirm){
+  pendingPromptAction = onConfirm;
+  document.getElementById('promptMessage').textContent = message;
+  const input = document.getElementById('promptInput');
+  input.value = defaultValue !== undefined && defaultValue !== null ? defaultValue : '';
+  document.getElementById('promptOverlay').style.display = 'flex';
+  setTimeout(()=>input.focus(), 50);
+}
+function hidePrompt(){
+  document.getElementById('promptOverlay').style.display = 'none';
+  pendingPromptAction = null;
+}
+function confirmPrompt(){
+  const value = document.getElementById('promptInput').value;
+  const cb = pendingPromptAction;
+  hidePrompt();
+  if(cb) cb(value);
+}
+
+/* ---------------- Bookie management ---------------- */
+function renderBookieListHTML(){
+  if(bookies.length === 0){
+    return `<p style="color:var(--ink-soft);font-size:12.5px;margin:0 0 4px;">Noch keine Bookies angelegt.</p>`;
+  }
+  return `
+    <div class="legs-list">
+      ${bookies.map(bk=>`
+        <div class="leg-row">
+          <strong style="font-size:13.5px;">${bk}</strong>
+          <button type="button" class="icon-btn" data-action="remove-bookie" data-name="${bk}">Entfernen</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function openBookieManager(){
+  document.getElementById('bookieListWrap').innerHTML = renderBookieListHTML();
+  const input = document.getElementById('newBookieInput');
+  input.value = '';
+  document.getElementById('bookieOverlay').style.display = 'flex';
+  setTimeout(()=>input.focus(), 50);
+}
+
+function closeBookieManager(){
+  document.getElementById('bookieOverlay').style.display = 'none';
+}
+
+async function addBookie(){
+  const input = document.getElementById('newBookieInput');
+  const name = input.value.trim();
+  if(!name) return;
+  if(bookies.some(bk=>bk.toLowerCase() === name.toLowerCase())){
+    input.value = '';
+    input.focus();
+    return;
+  }
+  bookies.push(name);
+  bookies.sort((a,b)=>a.localeCompare(b, 'de'));
+  await saveBookies();
+  document.getElementById('bookieListWrap').innerHTML = renderBookieListHTML();
+  input.value = '';
+  input.focus();
+  renderAll();
+}
+
+async function removeBookie(name){
+  bookies = bookies.filter(bk=>bk!==name);
+  await saveBookies();
+  document.getElementById('bookieListWrap').innerHTML = renderBookieListHTML();
+  renderAll();
+}
+
+/* ---------------- Quick status actions (Gewonnen / Verloren / Cashout) ---------------- */
+async function markWon(id){
+  const idx = bets.findIndex(b=>b.id===id);
+  if(idx<0) return;
+  bets[idx].status = 'gewonnen';
+  await saveBets();
+  renderAll();
+}
+
+async function markLost(id){
+  const idx = bets.findIndex(b=>b.id===id);
+  if(idx<0) return;
+  bets[idx].status = 'verloren';
+  await saveBets();
+  renderAll();
+}
+
+function markCashout(id){
+  const idx = bets.findIndex(b=>b.id===id);
+  if(idx<0) return;
+  showPrompt('Wie hoch war der ausgezahlte Cashout-Betrag (€)?', bets[idx].cashoutAmount || '', async (value)=>{
+    if(value === '' || value === null || isNaN(Number(value))) return;
+    const i = bets.findIndex(b=>b.id===id);
+    if(i<0) return;
+    bets[i].status = 'cashout';
+    bets[i].cashoutAmount = value;
+    await saveBets();
+    renderAll();
+  });
+}
+
+/* ---------------- Delegated click handling ----------------
+   All interactive buttons use data-action / data-id attributes instead
+   of inline onclick="" so a single listener covers dynamically
+   re-rendered content reliably. */
+document.addEventListener('click', function(e){
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  if(action === 'new-bet'){
+    if(currentView !== 'dashboard'){ currentView = 'dashboard'; renderApp(); }
+    openTypeChooser();
+  }
+  else if(action === 'choose-single') openForm();
+  else if(action === 'choose-combo') openComboForm();
+  else if(action === 'add-leg') addComboLeg();
+  else if(action === 'remove-leg') removeComboLeg(el.dataset.index);
+  else if(action === 'save-combo') saveComboForm();
+  else if(action === 'edit') editBet(el.dataset.id);
+  else if(action === 'delete') deleteBet(el.dataset.id);
+  else if(action === 'close-form') closeForm();
+  else if(action === 'reset') resetAllBets();
+  else if(action === 'demo') loadDemoData();
+  else if(action === 'save-bet') saveBetForm();
+  else if(action === 'chart-tab'){ activeChartTab = el.dataset.tab; renderCharts(); }
+  else if(action === 'clear-filters'){ filters = {sport:'',status:'',team:'',period:'all',from:'',to:'',bookie:''}; renderAll(); }
+  else if(action === 'confirm-yes'){ const cb = pendingConfirmAction; hideConfirm(); if(cb) cb(); }
+  else if(action === 'confirm-no'){ hideConfirm(); }
+  else if(action === 'prompt-yes'){ confirmPrompt(); }
+  else if(action === 'prompt-no'){ hidePrompt(); }
+  else if(action === 'mark-won') markWon(el.dataset.id);
+  else if(action === 'mark-lost') markLost(el.dataset.id);
+  else if(action === 'mark-cashout') markCashout(el.dataset.id);
+  else if(action === 'manage-bookies') openBookieManager();
+  else if(action === 'close-bookie-manager') closeBookieManager();
+  else if(action === 'add-bookie') addBookie();
+  else if(action === 'remove-bookie') removeBookie(el.dataset.name);
+  else if(action === 'view-dashboard'){ currentView='dashboard'; renderApp(); }
+  else if(action === 'view-calendar'){ currentView='calendar'; renderApp(); }
+  else if(action === 'calendar-mode'){ calendarMode = el.dataset.mode; renderCalendar(); }
+  else if(action === 'calendar-prev'){
+    calendarDate = calendarMode==='month'
+      ? new Date(calendarDate.getFullYear(), calendarDate.getMonth()-1, 1)
+      : new Date(calendarDate.getFullYear()-1, 0, 1);
+    renderCalendar();
+  }
+  else if(action === 'calendar-next'){
+    calendarDate = calendarMode==='month'
+      ? new Date(calendarDate.getFullYear(), calendarDate.getMonth()+1, 1)
+      : new Date(calendarDate.getFullYear()+1, 0, 1);
+    renderCalendar();
+  }
+  else if(action === 'calendar-today'){ calendarDate = new Date(); renderCalendar(); }
+  else if(action === 'calendar-month-select'){
+    calendarDate = new Date(calendarDate.getFullYear(), Number(el.dataset.month), 1);
+    calendarMode = 'month';
+    renderCalendar();
+  }
+  else if(action === 'calendar-day'){
+    const dateStr = el.dataset.date;
+    filters = {sport:'',status:'',team:'',period:'custom',from:dateStr,to:dateStr,bookie:''};
+    currentView = 'dashboard';
+    renderApp();
+  }
+});
+
+document.getElementById('promptInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ e.preventDefault(); confirmPrompt(); }
+});
+document.getElementById('newBookieInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ e.preventDefault(); addBookie(); }
+});
+
+(async function init(){
+  await loadBookies();
+  await loadBets();
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
