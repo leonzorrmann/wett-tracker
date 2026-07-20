@@ -7,13 +7,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link rel="icon" href="icon-192.png">
 <title>Wett-Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg:#0a0c10;
@@ -515,6 +514,7 @@
       <p>Erfasse deine Wetten wie Tippscheine und behalte Einsatz, Quote und Ergebnis jederzeit im Blick.</p>
     </div>
     <div class="header-actions">
+      <button class="btn btn-ghost btn-small" id="syncStatusBtn" data-action="manage-sync">Cloud-Sync</button>
       <button class="btn btn-ghost btn-small" data-action="manage-bookies">Bookies verwalten</button>
       <button class="btn btn-ghost btn-small" id="demoBtn" data-action="demo">Beispieldaten laden</button>
       <button class="btn btn-ghost btn-small" id="resetBtn" data-action="reset">Alle Daten löschen</button>
@@ -685,6 +685,7 @@ async function loadBets(){
 async function saveBets(){
   try{ await window.storage.set('bets', JSON.stringify(bets), false); }
   catch(e){ console.error('Speichern fehlgeschlagen', e); }
+  pushToCloud();
 }
 
 async function loadBookies(){
@@ -697,6 +698,195 @@ async function loadBookies(){
 async function saveBookies(){
   try{ await window.storage.set('bookies', JSON.stringify(bookies), false); }
   catch(e){ console.error('Bookies speichern fehlgeschlagen', e); }
+  pushToCloud();
+}
+
+/* ---------------------------------------------------------------
+   Cloud-Sync (optional): mirrors bets/bookies to a Firebase Firestore
+   document so multiple devices sharing the same "Sync-Code" see the
+   same data. Entirely opt-in — without a saved config, none of this
+   runs and the app behaves exactly as before (local-only).
+   --------------------------------------------------------------- */
+const FIREBASE_AVAILABLE = typeof firebase !== 'undefined';
+const SYNC_CONFIG_KEY = 'wett-tracker:sync-config';
+const SYNC_CODE_KEY = 'wett-tracker:sync-code';
+let syncDb = null;
+let syncUnsubscribe = null;
+let syncPushTimer = null;
+let syncStatus = 'off'; // 'off' | 'connecting' | 'connected' | 'error'
+let syncErrorMsg = '';
+
+function parseFirebaseConfigInput(text){
+  const trimmed = (text||'').trim();
+  if(!trimmed) return null;
+  try{ return JSON.parse(trimmed); }catch(e){ /* not plain JSON, try as JS object literal below */ }
+  const match = trimmed.match(/\{[\s\S]*\}/);
+  const objText = match ? match[0] : trimmed;
+  try{ return (new Function('return (' + objText + ')'))(); }
+  catch(e){ return null; }
+}
+
+function getSyncSettings(){
+  const configRaw = localStorage.getItem(SYNC_CONFIG_KEY);
+  const code = localStorage.getItem(SYNC_CODE_KEY) || '';
+  let config = null;
+  try{ config = configRaw ? JSON.parse(configRaw) : null; }catch(e){ config = null; }
+  return { config, code };
+}
+
+async function initCloudSync(){
+  if(!FIREBASE_AVAILABLE) return;
+  const { config, code } = getSyncSettings();
+  if(!config || !code){ syncStatus = 'off'; updateSyncStatusBtn(); return; }
+  syncStatus = 'connecting';
+  updateSyncStatusBtn();
+  try{
+    const app = firebase.apps && firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(config);
+    syncDb = app.firestore();
+    const ref = syncDb.collection('wett-tracker-sync').doc(code);
+    const snap = await ref.get();
+    if(snap.exists){
+      const data = snap.data();
+      if(typeof data.bets === 'string') localStorage.setItem('wett-tracker:bets', data.bets);
+      if(typeof data.bookies === 'string') localStorage.setItem('wett-tracker:bookies', data.bookies);
+    } else {
+      await ref.set({
+        bets: localStorage.getItem('wett-tracker:bets') || '[]',
+        bookies: localStorage.getItem('wett-tracker:bookies') || '[]',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    attachSyncListener(code);
+    syncStatus = 'connected';
+    syncErrorMsg = '';
+  }catch(e){
+    console.error('Cloud-Sync Fehler', e);
+    syncStatus = 'error';
+    syncErrorMsg = e.message || 'Unbekannter Fehler';
+  }
+  updateSyncStatusBtn();
+}
+
+function attachSyncListener(code){
+  if(syncUnsubscribe) syncUnsubscribe();
+  const ref = syncDb.collection('wett-tracker-sync').doc(code);
+  syncUnsubscribe = ref.onSnapshot(async (snap)=>{
+    if(snap.metadata.hasPendingWrites) return; // ignore echo of our own write
+    if(!snap.exists) return;
+    const data = snap.data();
+    let changed = false;
+    if(typeof data.bets === 'string' && data.bets !== localStorage.getItem('wett-tracker:bets')){
+      localStorage.setItem('wett-tracker:bets', data.bets); changed = true;
+    }
+    if(typeof data.bookies === 'string' && data.bookies !== localStorage.getItem('wett-tracker:bookies')){
+      localStorage.setItem('wett-tracker:bookies', data.bookies); changed = true;
+    }
+    if(changed){
+      await loadBookies();
+      bets = JSON.parse(localStorage.getItem('wett-tracker:bets') || '[]');
+      renderApp();
+    }
+  }, (err)=>{
+    console.error('Sync-Listener Fehler', err);
+    syncStatus = 'error';
+    syncErrorMsg = err.message || 'Verbindung verloren';
+    updateSyncStatusBtn();
+  });
+}
+
+function pushToCloud(){
+  if(!syncDb) return;
+  const { code } = getSyncSettings();
+  if(!code) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(()=>{
+    syncDb.collection('wett-tracker-sync').doc(code).set({
+      bets: localStorage.getItem('wett-tracker:bets') || '[]',
+      bookies: localStorage.getItem('wett-tracker:bookies') || '[]',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge:true }).catch(e=>console.error('Cloud-Push fehlgeschlagen', e));
+  }, 400);
+}
+
+function updateSyncStatusBtn(){
+  const btn = document.getElementById('syncStatusBtn');
+  if(!btn) return;
+  const labels = { off:'Cloud-Sync', connecting:'Sync verbindet…', connected:'Cloud-Sync ✓', error:'Sync-Fehler ⚠' };
+  btn.textContent = labels[syncStatus] || 'Cloud-Sync';
+}
+
+function openSyncManager(){
+  editingId = null;
+  const { config, code } = getSyncSettings();
+  const slipContainer = document.getElementById('slipContainer');
+  const statusText = {
+    off:'Nicht verbunden – Daten bleiben nur auf diesem Gerät.',
+    connecting:'Verbinde…',
+    connected:'Verbunden – Änderungen werden mit anderen Geräten mit demselben Code synchronisiert.',
+    error:'Fehler: ' + syncErrorMsg
+  }[syncStatus] || '';
+  slipContainer.innerHTML = `
+    <div class="slip">
+      <div class="slip-head">
+        <h2>Cloud-Sync</h2>
+        <button class="slip-close" data-action="close-form">Schließen ✕</button>
+      </div>
+      <p style="margin:0 0 16px;color:var(--ink-soft);font-size:13px;line-height:1.5;">
+        Damit dieselben Wetten auf mehreren Geräten erscheinen, brauchst du ein kostenloses
+        Firebase-Projekt mit Firestore-Datenbank. Firebase-Konfiguration unten einfügen (aus der
+        Firebase-Konsole kopiert) und auf jedem Gerät denselben Sync-Code eingeben.
+      </p>
+      <p style="margin:-8px 0 16px;font-size:12.5px;color:${syncStatus==='error'?'var(--loss)':'var(--ink-soft)'};">${statusText}</p>
+      <div class="form-grid">
+        <div class="field span2">
+          <label>Firebase-Konfiguration</label>
+          <textarea id="syncConfigInput" rows="5" placeholder='{ "apiKey": "...", "projectId": "...", ... }' style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:9px 10px;border-radius:5px;border:1px solid var(--paper-line);background:#f8faff;color:var(--ink);">${config ? JSON.stringify(config, null, 2) : ''}</textarea>
+        </div>
+        <div class="field span2">
+          <label>Sync-Code (auf allen Geräten identisch)</label>
+          <input type="text" id="syncCodeInput" value="${code}" placeholder="z. B. mein-wett-tracker-2026">
+        </div>
+        <div class="form-actions">
+          ${(config && code) ? `<button type="button" class="btn btn-ghost" data-action="disconnect-sync">Trennen</button>` : ''}
+          <button type="button" class="btn btn-gold" data-action="connect-sync">Verbinden &amp; speichern</button>
+        </div>
+      </div>
+    </div>
+  `;
+  slipContainer.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function connectSync(){
+  const configText = document.getElementById('syncConfigInput').value;
+  const code = document.getElementById('syncCodeInput').value.trim();
+  const config = parseFirebaseConfigInput(configText);
+  if(!config || !code){
+    syncErrorMsg = 'Bitte gültige Firebase-Konfiguration und einen Sync-Code angeben.';
+    syncStatus = 'error';
+    openSyncManager();
+    return;
+  }
+  localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(config));
+  localStorage.setItem(SYNC_CODE_KEY, code);
+  closeForm();
+  await initCloudSync();
+  if(syncStatus === 'connected'){
+    bets = JSON.parse(localStorage.getItem('wett-tracker:bets') || '[]');
+    await loadBookies();
+    renderApp();
+  }
+}
+
+function disconnectSync(){
+  showConfirm('Cloud-Sync trennen? Deine Daten bleiben lokal auf diesem Gerät erhalten.', ()=>{
+    if(syncUnsubscribe){ syncUnsubscribe(); syncUnsubscribe = null; }
+    syncDb = null;
+    localStorage.removeItem(SYNC_CONFIG_KEY);
+    localStorage.removeItem(SYNC_CODE_KEY);
+    syncStatus = 'off';
+    updateSyncStatusBtn();
+    closeForm();
+  });
 }
 
 function getFiltered(){
@@ -1856,6 +2046,9 @@ document.addEventListener('click', function(e){
   else if(action === 'close-bookie-manager') closeBookieManager();
   else if(action === 'add-bookie') addBookie();
   else if(action === 'remove-bookie') removeBookie(el.dataset.name);
+  else if(action === 'manage-sync') openSyncManager();
+  else if(action === 'connect-sync') connectSync();
+  else if(action === 'disconnect-sync') disconnectSync();
   else if(action === 'view-dashboard'){ currentView='dashboard'; renderApp(); }
   else if(action === 'view-calendar'){ currentView='calendar'; renderApp(); }
   else if(action === 'calendar-mode'){ calendarMode = el.dataset.mode; renderCalendar(); }
@@ -1893,15 +2086,10 @@ document.getElementById('newBookieInput').addEventListener('keydown', e=>{
 });
 
 (async function init(){
+  await initCloudSync();
   await loadBookies();
   await loadBets();
 })();
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
-  });
-}
 </script>
 </body>
 </html>
