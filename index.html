@@ -1081,7 +1081,12 @@ function renderFiltersAndList(){
   if(list.length === 0){
     betList.innerHTML = `<div class="empty"><h3>Keine Treffer</h3><p>Für die aktuellen Filter wurden keine Wetten gefunden.</p></div>`;
   } else {
-    const sorted = [...list].sort((a,b)=> b.date.localeCompare(a.date));
+    const sorted = [...list].sort((a,b)=>{
+      const aOpen = a.status === 'offen', bOpen = b.status === 'offen';
+      if(aOpen && !bOpen) return -1;
+      if(!aOpen && bOpen) return 1;
+      return b.date.localeCompare(a.date);
+    });
     betList.innerHTML = sorted.map(b=>{
       const r = computeResult(b);
       const stampMap = {offen:'Offen', gewonnen:'Gewonnen', verloren:'Verloren', push:'Push', cashout:'Cashout'};
@@ -1094,7 +1099,7 @@ function renderFiltersAndList(){
             <div class="bet-meta">${i+1}. ${l.teamA}${l.teamB? ' – '+l.teamB:''} — ${l.sport}${l.market? ' · '+l.market:''}${l.pick? ' · Tipp: '+l.pick:''} · @${Number(l.odds).toFixed(2)}</div>
           `).join('') : (b.pick? `<div class="bet-meta">Tipp: ${b.pick}${b.market? ' ('+b.market+')':''}</div>`:'');
       const bonusPct = Number(b.bonus)||0;
-      const bonusLine = (isCombo && bonusPct>0) ? `<div class="bet-meta" style="color:var(--win);">+${bonusPct}% Bonus · effektive Quote ${(Number(b.odds)*(1+bonusPct/100)).toFixed(2)}</div>` : '';
+      const bonusLine = bonusPct>0 ? `<div class="bet-meta" style="color:var(--win);">+${bonusPct}% ${isCombo?'Bonus':'Quotenboost'} · effektive Quote ${(Number(b.odds)*(1+bonusPct/100)).toFixed(2)}</div>` : '';
       const freebetLine = b.freebet ? `<div class="bet-meta" style="color:var(--gold-light);">Freiwette · nur Nettogewinn zählt in die Statistik</div>` : '';
       return `
         <div class="bet-card">
@@ -1521,6 +1526,16 @@ function openForm(bet){
               Freiwette
             </label>
           </div>
+          <div class="field field-checkbox">
+            <label class="checkbox-label">
+              <input type="checkbox" id="boostCheckbox" ${Number(b.bonus)>0?'checked':''}>
+              Quotenboost
+            </label>
+          </div>
+          <div class="field span2" id="boostAmountWrap" style="${Number(b.bonus)>0?'':'display:none'}">
+            <label>Quotenboost (%)</label>
+            <input type="number" step="0.1" min="0" id="boostAmount" value="${Number(b.bonus)>0?b.bonus:''}" placeholder="z. B. 25">
+          </div>
           <div class="field span2">
             <label>Notiz (optional)</label>
             <input type="text" name="note" value="${b.note||''}" placeholder="Freitext">
@@ -1539,6 +1554,9 @@ function openForm(bet){
   };
   document.getElementById('statusSelect').onchange = e=>{
     document.getElementById('cashoutAmountWrap').style.display = e.target.value==='cashout' ? '' : 'none';
+  };
+  document.getElementById('boostCheckbox').onchange = e=>{
+    document.getElementById('boostAmountWrap').style.display = e.target.checked ? '' : 'none';
   };
   slipContainer.scrollIntoView({behavior:'smooth', block:'start'});
 }
@@ -1559,7 +1577,9 @@ async function saveBetForm(){
   const fd = new FormData(form);
   const raw = Object.fromEntries(fd.entries());
   const market = raw.marketSelect === 'Sonstiges' ? (raw.marketCustom||'').trim() : raw.marketSelect;
-  const data = {...raw, market, type:'single', freebet: !!form.querySelector('input[name="freebet"]').checked};
+  const boostEnabled = document.getElementById('boostCheckbox').checked;
+  const boostValue = boostEnabled ? (Number(document.getElementById('boostAmount').value) || 0) : 0;
+  const data = {...raw, market, type:'single', freebet: !!form.querySelector('input[name="freebet"]').checked, bonus: boostValue};
   delete data.marketSelect;
   delete data.marketCustom;
   if(editingId){
