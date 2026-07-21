@@ -358,28 +358,30 @@
   }
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
   .cal-cell{
-    aspect-ratio:1/0.85;border-radius:7px;padding:8px;position:relative;
-    display:flex;flex-direction:column;justify-content:space-between;
+    aspect-ratio:1/0.85;border-radius:7px;padding:6px;position:relative;
+    display:flex;align-items:center;justify-content:center;
     cursor:pointer;transition:transform .1s ease, border-color .15s ease;
     background:var(--panel);border:1px solid var(--panel-border);
     overflow:hidden;min-width:0;
   }
   .cal-cell:hover{transform:translateY(-2px);border-color:var(--gold);}
   .cal-cell.empty{background:transparent;border:none;cursor:default;pointer-events:none;}
-  .cal-cell.pos{background:rgba(63,143,92,.16);border-color:rgba(63,143,92,.5);}
-  .cal-cell.neg{background:rgba(181,71,58,.16);border-color:rgba(181,71,58,.5);}
+  .cal-cell.pos{background:rgba(22,163,74,.38);border-color:rgba(74,222,128,.9);}
+  .cal-cell.neg{background:rgba(220,38,38,.38);border-color:rgba(248,113,113,.9);}
   .cal-daynum{
-    font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);
-    display:flex;align-items:center;gap:5px;
+    position:absolute;top:5px;left:7px;
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);
+    display:flex;align-items:center;gap:4px;
   }
-  .cal-cell.pos .cal-daynum, .cal-cell.neg .cal-daynum{color:#e7eaf1;}
+  .cal-cell.pos .cal-daynum, .cal-cell.neg .cal-daynum{color:rgba(255,255,255,.85);}
   .cal-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block;}
   .cal-pl{
-    font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;
-    text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:700;
+    text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    max-width:100%;
   }
-  .cal-cell.pos .cal-pl{color:#8fe0ab;}
-  .cal-cell.neg .cal-pl{color:#f0a396;}
+  .cal-cell.pos .cal-pl{color:#4ade80;}
+  .cal-cell.neg .cal-pl{color:#f87171;}
   .cal-year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
   .cal-month-tile{
     background:var(--panel);border:1px solid var(--panel-border);border-radius:9px;
@@ -387,13 +389,15 @@
     display:flex;flex-direction:column;gap:8px;align-items:center;
   }
   .cal-month-tile:hover{transform:translateY(-2px);border-color:var(--gold);}
-  .cal-month-tile.pos{background:rgba(63,143,92,.12);border-color:rgba(63,143,92,.45);}
-  .cal-month-tile.neg{background:rgba(181,71,58,.12);border-color:rgba(181,71,58,.45);}
+  .cal-month-tile.pos{background:rgba(22,163,74,.30);border-color:rgba(74,222,128,.85);}
+  .cal-month-tile.neg{background:rgba(220,38,38,.30);border-color:rgba(248,113,113,.85);}
   .cal-month-name{
     font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.05em;
     font-size:13px;color:var(--muted);
   }
-  .cal-month-tile.pos .cal-month-name, .cal-month-tile.neg .cal-month-name{color:#e7eaf1;}
+  .cal-month-tile.pos .cal-month-name, .cal-month-tile.neg .cal-month-name{color:rgba(255,255,255,.9);}
+  .cal-month-tile.pos .cal-pl{color:#4ade80;}
+  .cal-month-tile.neg .cal-pl{color:#f87171;}
   .cal-month-tile .cal-pl{font-size:16px;}
   .cal-month-tile .cal-pl.muted{color:var(--muted);font-weight:400;}
   @media(max-width:700px){
@@ -1183,8 +1187,8 @@ function renderProfitChart(target, settled){
     return;
   }
   let running = 0;
-  const labels = settled.map(b=>fmtDate(b.date));
-  const points = settled.map(b=>{ running += computeResult(b).profit; return Math.round(running*100)/100; });
+  const labels = ['Start', ...settled.map(b=>fmtDate(b.date))];
+  const points = [0, ...settled.map(b=>{ running += computeResult(b).profit; return Math.round(running*100)/100; })];
   const GREEN = '#3f8f5c', RED = '#b5473a';
   const GREEN_FILL = 'rgba(63,143,92,.18)', RED_FILL = 'rgba(181,71,58,.18)';
   const canvas = document.createElement('canvas'); target.appendChild(canvas);
@@ -1193,7 +1197,8 @@ function renderProfitChart(target, settled){
     data:{ labels, datasets:[{
       label:'Bilanz', data:points,
       borderColor: GREEN, backgroundColor: GREEN_FILL,
-      fill:true, tension:.2, pointRadius:2.5,
+      fill:true, tension:.2,
+      pointRadius: ctx => ctx.dataIndex === 0 ? 0 : 2.5,
       pointBackgroundColor: ctx => (ctx.raw >= 0 ? GREEN : RED),
       pointBorderColor: ctx => (ctx.raw >= 0 ? GREEN : RED),
       segment:{
