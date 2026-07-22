@@ -660,14 +660,12 @@ function uid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'b'+Date.now()
 function computeResult(bet){
   const stake = Number(bet.stake)||0, odds = Number(bet.odds)||0;
   const bonusPct = Number(bet.bonus)||0;
-  const effectiveOdds = bonusPct > 0 ? odds * (1 + bonusPct/100) : odds;
   const isFree = !!bet.freebet;
   if(bet.status === 'gewonnen'){
-    if(isFree){
-      const profit = stake*(effectiveOdds-1);
-      return { payout: profit, profit };
-    }
-    return { payout: stake*effectiveOdds, profit: stake*effectiveOdds - stake };
+    const netProfit = stake * (odds - 1);
+    const boostedNet = bonusPct > 0 ? netProfit * (1 + bonusPct/100) : netProfit;
+    if(isFree) return { payout: boostedNet, profit: boostedNet };
+    return { payout: stake + boostedNet, profit: boostedNet };
   }
   if(bet.status === 'verloren') return { payout: 0, profit: isFree ? 0 : -stake };
   if(bet.status === 'push') return { payout: isFree ? 0 : stake, profit: 0 };
@@ -1085,7 +1083,9 @@ function renderFiltersAndList(){
       const aOpen = a.status === 'offen', bOpen = b.status === 'offen';
       if(aOpen && !bOpen) return -1;
       if(!aOpen && bOpen) return 1;
-      return b.date.localeCompare(a.date);
+      const dateCompare = b.date.localeCompare(a.date);
+      if(dateCompare !== 0) return dateCompare;
+      return (b.createdAt||0) - (a.createdAt||0);
     });
     betList.innerHTML = sorted.map(b=>{
       const r = computeResult(b);
@@ -1099,7 +1099,7 @@ function renderFiltersAndList(){
             <div class="bet-meta">${i+1}. ${l.teamA}${l.teamB? ' – '+l.teamB:''} — ${l.sport}${l.market? ' · '+l.market:''}${l.pick? ' · Tipp: '+l.pick:''} · @${Number(l.odds).toFixed(2)}</div>
           `).join('') : (b.pick? `<div class="bet-meta">Tipp: ${b.pick}${b.market? ' ('+b.market+')':''}</div>`:'');
       const bonusPct = Number(b.bonus)||0;
-      const bonusLine = bonusPct>0 ? `<div class="bet-meta" style="color:var(--win);">+${bonusPct}% ${isCombo?'Bonus':'Quotenboost'} · effektive Quote ${(Number(b.odds)*(1+bonusPct/100)).toFixed(2)}</div>` : '';
+      const bonusLine = bonusPct>0 ? `<div class="bet-meta" style="color:var(--win);">+${bonusPct}% ${isCombo?'Bonus':'Quotenboost'} (nur auf Nettogewinn) · effektive Quote ${(1 + (Number(b.odds)-1)*(1+bonusPct/100)).toFixed(2)}</div>` : '';
       const freebetLine = b.freebet ? `<div class="bet-meta" style="color:var(--gold-light);">Freiwette · nur Nettogewinn zählt in die Statistik</div>` : '';
       return `
         <div class="bet-card">
@@ -1586,7 +1586,7 @@ async function saveBetForm(){
     const idx = bets.findIndex(b=>b.id===editingId);
     if(idx>-1) bets[idx] = {...bets[idx], ...data};
   } else {
-    bets.push({ id: uid(), ...data });
+    bets.push({ id: uid(), createdAt: Date.now(), ...data });
   }
   await saveBets();
   closeForm();
@@ -1686,7 +1686,7 @@ function updateEffectiveOddsDisplay(){
   const bonusEl = document.getElementById('comboBonus');
   const bonus = bonusEl ? (Number(bonusEl.value)||0) : 0;
   const rawOdds = comboLegs.reduce((p,l)=>p*Number(l.odds||1), 1);
-  const effOdds = rawOdds * (1 + bonus/100);
+  const effOdds = 1 + (rawOdds - 1) * (1 + bonus/100);
   effEl.textContent = comboLegs.length ? effOdds.toFixed(2) : '–';
 }
 
@@ -1862,7 +1862,7 @@ async function saveComboForm(){
     const idx = bets.findIndex(b=>b.id===editingId);
     if(idx>-1) bets[idx] = {...bets[idx], ...data, id: editingId};
   } else {
-    bets.push({ id: uid(), ...data });
+    bets.push({ id: uid(), createdAt: Date.now(), ...data });
   }
   await saveBets();
   closeForm();
@@ -1909,7 +1909,7 @@ function loadDemoData(){
       {sport:'Valorant', league:'VCT', teamA:'Sentinels', teamB:'Fnatic', market:'1X2 (Sieger)', pick:'Sentinels', odds:1.8, stake:15, status:'gewonnen', date:'2026-06-22', note:''},
       {sport:'League of Legends', league:'LEC', teamA:'G2 Esports', teamB:'Fnatic', market:'1X2 (Sieger)', pick:'G2 Esports', odds:1.65, stake:20, status:'gewonnen', date:'2026-06-25', note:''},
       {sport:'CS2', league:'IEM', teamA:'NAVI', teamB:'FaZe', market:'1X2 (Sieger)', pick:'FaZe', odds:2.3, stake:15, status:'verloren', date:'2026-06-29', note:''}
-    ].map(d=>({ id: uid(), ...d }));
+    ].map((d,i)=>({ id: uid(), createdAt: Date.now() - (1000 * (100 - i)), ...d }));
     bets = bets.concat(demo);
     await saveBets();
     renderApp();
